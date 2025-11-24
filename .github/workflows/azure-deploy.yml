@@ -1,0 +1,91 @@
+name: Deploy to Azure App Service
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: amazinginventory-app
+  AZURE_RESOURCE_GROUP: AmazingInventory
+  PHP_VERSION: '8.2'
+  NODE_VERSION: '20.x'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, xml, bcmath, pdo, pdo_pgsql, pdo_mysql, fileinfo, gd, zip
+          coverage: none
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v3
+        with:
+          path: vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: |
+          composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+      - name: Install NPM dependencies
+        run: |
+          npm ci
+
+      - name: Build frontend assets
+        run: |
+          npm run build
+          
+      - name: Verify build output
+        run: |
+          if [ ! -f "public/build/manifest.json" ]; then
+            echo "ERROR: Build manifest not found!"
+            exit 1
+          fi
+          echo "Build verification successful - manifest.json exists"
+          ls -la public/build/
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          package: .
+          startup-command: 'deploy.sh'
+
+      - name: Run database migrations
+        run: |
+          az webapp config appsettings list \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --query "[?name=='DB_CONNECTION'].value" -o tsv || echo "pgsql"
+          
+          # Note: Migrations are handled by deploy.sh script
+          # If you need to run migrations separately, uncomment below:
+          # az webapp ssh \
+          #   --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          #   --name ${{ env.AZURE_WEBAPP_NAME }} \
+          #   --command "cd /home/site/wwwroot && php artisan migrate --force" || true
+

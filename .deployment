@@ -1,0 +1,6 @@
+[config]
+SCM_DO_BUILD_DURING_DEPLOYMENT=true
+ENABLE_ORYX_BUILD=true
+PRE_BUILD_COMMAND="npm ci && npm run build"
+POST_BUILD_COMMAND="php artisan storage:link && php artisan config:cache && php artisan route:cache && php artisan view:cache"
+

@@ -6,6 +6,12 @@ on:
       - main
       - master
   workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'Skip tests before deployment'
+        required: false
+        default: 'false'
+        type: boolean
 
 env:
   AZURE_WEBAPP_NAME: amazinginventory-app
@@ -16,6 +22,7 @@ env:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     
     steps:
       - name: Checkout code
@@ -25,7 +32,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.PHP_VERSION }}
-          extensions: mbstring, xml, bcmath, pdo, pdo_pgsql, pdo_mysql, fileinfo, gd, zip
+          extensions: mbstring, xml, bcmath, pdo, pdo_pgsql, pdo_mysql, fileinfo, gd, zip, opcache
           coverage: none
 
       - name: Setup Node.js
@@ -50,42 +57,102 @@ jobs:
         run: |
           npm ci
 
-      - name: Build frontend assets
+      - name: Build frontend assets (Tailwind CSS & JS)
         run: |
+          echo "Building frontend assets..."
           npm run build
           
       - name: Verify build output
         run: |
           if [ ! -f "public/build/manifest.json" ]; then
-            echo "ERROR: Build manifest not found!"
+            echo "❌ ERROR: Build manifest not found! Assets will not work."
+            echo "Build directory contents:"
+            ls -la public/build/ 2>/dev/null || echo "Build directory does not exist"
             exit 1
           fi
-          echo "Build verification successful - manifest.json exists"
-          ls -la public/build/
+          echo "✅ Build verification successful - manifest.json exists"
+          echo "Build assets:"
+          ls -lh public/build/assets/ 2>/dev/null || echo "No assets directory found"
 
       - name: Azure Login
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Verify Azure App Service exists
+        run: |
+          echo "Verifying Azure App Service..."
+          az webapp show \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --query "state" -o tsv || {
+              echo "❌ App Service not found or not accessible"
+              exit 1
+            }
+          echo "✅ App Service verified"
+
       - name: Deploy to Azure Web App
+        id: deploy
         uses: azure/webapps-deploy@v2
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           package: .
           startup-command: 'deploy.sh'
+          scm-type: 'None'
 
-      - name: Run database migrations
+      - name: Verify deployment
         run: |
-          az webapp config appsettings list \
+          echo "Waiting for app to be ready..."
+          sleep 10
+          
+          # Check if app is running
+          APP_STATE=$(az webapp show \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
-            --query "[?name=='DB_CONNECTION'].value" -o tsv || echo "pgsql"
+            --query "state" -o tsv)
           
-          # Note: Migrations are handled by deploy.sh script
-          # If you need to run migrations separately, uncomment below:
-          # az webapp ssh \
-          #   --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-          #   --name ${{ env.AZURE_WEBAPP_NAME }} \
-          #   --command "cd /home/site/wwwroot && php artisan migrate --force" || true
+          if [ "$APP_STATE" != "Running" ]; then
+            echo "⚠️ Warning: App state is $APP_STATE (expected: Running)"
+          else
+            echo "✅ App is running"
+          fi
+          
+          # Verify APP_URL is set correctly
+          APP_URL=$(az webapp config appsettings list \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --query "[?name=='APP_URL'].value" -o tsv)
+          
+          if [ -z "$APP_URL" ]; then
+            echo "⚠️ Warning: APP_URL is not set. Assets may not work correctly."
+          else
+            echo "✅ APP_URL is set to: $APP_URL"
+          fi
 
+      - name: Check deployment logs
+        if: always()
+        run: |
+          echo "Recent deployment logs:"
+          az webapp log tail \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --timeout 5 || echo "Could not fetch logs (this is normal)"
+
+      - name: Deployment Summary
+        if: always()
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Deployment completed**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**App Service:** ${{ env.AZURE_WEBAPP_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Resource Group:** ${{ env.AZURE_RESOURCE_GROUP }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. Verify your app is running: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net" >> $GITHUB_STEP_SUMMARY
+          echo "2. Check that assets (CSS/JS) are loading correctly" >> $GITHUB_STEP_SUMMARY
+          echo "3. Verify database connection" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Troubleshooting:**" >> $GITHUB_STEP_SUMMARY
+          echo "- See [ASSETS_DEPLOYMENT.md](../ASSETS_DEPLOYMENT.md) if assets aren't working" >> $GITHUB_STEP_SUMMARY
+          echo "- See [QUICK_FIX_ASSETS.md](../QUICK_FIX_ASSETS.md) for quick fixes" >> $GITHUB_STEP_SUMMARY

@@ -400,3 +400,4 @@ For iOS simulator, `localhost` works fine.
 - [ ] Add request/response logging for debugging
 - [ ] Handle network connectivity issues gracefully
 
+

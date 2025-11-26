@@ -19,7 +19,6 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-configure intl \
     && docker-php-ext-install -j$(nproc) \
         pdo \
-        pdo_sqlite \
         pdo_pgsql \
         mbstring \
         exif \

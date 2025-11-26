@@ -98,6 +98,15 @@ php artisan route:cache || true
 php artisan view:cache || true
 php artisan event:cache || true
 
+# Optimize Laravel for production
+echo "🚀 Optimizing Laravel application..."
+php artisan optimize || true
+
+# Optimize Filament for production
+# This caches Filament components and Blade Icons for better performance
+echo "🎨 Optimizing Filament panel..."
+php artisan filament:optimize || echo "⚠️  Filament optimization failed, continuing anyway..."
+
 # Start the application
 echo "🌟 Starting PHP development server..."
 # Render provides PORT environment variable, default to 80 if not set

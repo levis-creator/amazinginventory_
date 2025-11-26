@@ -103,7 +103,11 @@ RUN if [ ! -f .env ]; then \
 RUN composer dump-autoload --optimize --classmap-authoritative
 
 # Run Laravel package discovery (from post-autoload-dump script)
+# This also runs filament:upgrade via composer post-autoload-dump script
 RUN php artisan package:discover --ansi || echo "⚠️  Package discovery skipped"
+
+# Ensure Filament assets are up to date (runs via composer script, but explicit for clarity)
+RUN php artisan filament:upgrade || echo "⚠️  Filament upgrade skipped"
 
 # Build frontend assets
 # Note: Assets are built with a placeholder APP_URL, which will be updated at runtime

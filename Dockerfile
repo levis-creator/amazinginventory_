@@ -51,13 +51,22 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 COPY composer.json composer.lock ./
 
 # Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
+# Using --no-scripts to avoid running Laravel commands before files are copied
+# We'll run scripts manually after copying application files
+# Increase memory limit for Composer
+RUN COMPOSER_MEMORY_LIMIT=-1 composer install \
+    --no-dev \
+    --optimize-autoloader \
+    --no-interaction \
+    --no-scripts \
+    --prefer-dist \
+    --no-progress
 
 # Copy package files for NPM
 COPY package.json package-lock.json ./
 
 # Install NPM dependencies
-RUN npm ci --only=production=false
+RUN npm ci --only=production=false || npm install
 
 # Copy application files
 COPY . .
@@ -66,10 +75,7 @@ COPY . .
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html
 
-# Build frontend assets
-RUN npm run build
-
-# Create storage directories and set permissions
+# Create storage directories and set permissions (before running artisan commands)
 RUN mkdir -p storage/app/public \
     storage/framework/cache \
     storage/framework/sessions \
@@ -79,11 +85,27 @@ RUN mkdir -p storage/app/public \
     && chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
+# Create a minimal .env file for artisan commands (if it doesn't exist)
+# This prevents errors when running artisan commands during build
+RUN if [ ! -f .env ]; then \
+        echo "APP_NAME=Laravel" > .env && \
+        echo "APP_ENV=production" >> .env && \
+        echo "APP_KEY=" >> .env && \
+        echo "APP_DEBUG=false" >> .env; \
+    fi
+
+# Run Composer scripts now that Laravel files are available
+# This runs package discovery and other post-install scripts
+RUN composer dump-autoload --optimize --classmap-authoritative
+
+# Run Laravel package discovery (from post-autoload-dump script)
+RUN php artisan package:discover --ansi || echo "⚠️  Package discovery skipped"
+
+# Build frontend assets
+RUN npm run build
+
 # Create storage symbolic link
 RUN php artisan storage:link || true
-
-# Run Composer scripts (package discovery, etc.)
-RUN composer dump-autoload --optimize --classmap-authoritative
 
 # Copy and set up entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/

@@ -41,7 +41,26 @@ class ExpenseResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        return static::getModel()::count();
+        try {
+            return static::getModel()::count();
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Handle PostgreSQL prepared statement errors gracefully
+            // This can occur with connection pooling when statements are reused across connections
+            if (str_contains($e->getMessage(), 'prepared statement') || 
+                str_contains($e->getMessage(), 'does not exist')) {
+                // Retry once with a fresh connection
+                try {
+                    \Illuminate\Support\Facades\DB::connection()->reconnect();
+                    return static::getModel()::count();
+                } catch (\Exception $retryException) {
+                    return null;
+                }
+            }
+            return null;
+        } catch (\Exception $e) {
+            // Handle any other exceptions gracefully
+            return null;
+        }
     }
 
     public static function getRecordTitleAttribute(): ?string

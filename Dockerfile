@@ -73,7 +73,8 @@ COPY . .
 
 # Set proper permissions
 RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html
+    && chmod -R 755 /var/www/html \
+    && chmod -R 755 /var/www/html/public
 
 # Create storage directories and set permissions (before running artisan commands)
 RUN mkdir -p storage/app/public \

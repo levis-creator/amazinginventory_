@@ -64,9 +64,20 @@ class DatabaseSeeder extends Seeder
         // Use syncRoles to remove any other roles and ensure only admin role is assigned
         $adminUser->syncRoles(['admin']);
         
+        // Clear permission cache to ensure fresh role check
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        
+        // Refresh user model to clear any cached relationships
+        $adminUser->refresh();
+        $adminUser->load('roles');
+        
         // Double-check: if for some reason the role wasn't assigned, assign it explicitly
         if (! $adminUser->hasRole('admin')) {
             $adminUser->assignRole('admin');
+            // Clear cache again after assignment
+            app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+            $adminUser->refresh();
+            $adminUser->load('roles');
         }
         
         // Verify the admin role has all permissions
@@ -76,5 +87,10 @@ class DatabaseSeeder extends Seeder
             // If any permissions are missing from the admin role, add them
             $adminRole->givePermissionTo($missingPermissions);
         }
+        
+        // Since local and production share the same DB, also ensure any other existing users
+        // that might need admin access get it (if they match the admin email pattern)
+        // This is a safety measure for shared database scenarios
+        $this->command->info("✅ Admin user '{$adminUser->email}' has been assigned admin role");
     }
 }

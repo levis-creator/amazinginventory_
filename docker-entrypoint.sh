@@ -56,7 +56,79 @@ php artisan migrate --force --no-interaction || echo "⚠️  Migration failed o
 # The seeder uses firstOrCreate, so it's safe to run multiple times
 if [ "${SEED_DATABASE:-true}" = "true" ]; then
     echo "🌱 Seeding database with admin user, roles, and permissions..."
+    
+    # Check if FILAMENT_ADMIN_EMAIL is set
+    if [ -z "$FILAMENT_ADMIN_EMAIL" ]; then
+        echo "⚠️  WARNING: FILAMENT_ADMIN_EMAIL is not set!"
+        echo "   Admin user will be created with default email: admin@example.com"
+    else
+        echo "✅ FILAMENT_ADMIN_EMAIL is set to: $FILAMENT_ADMIN_EMAIL"
+    fi
+    
+    # Run the seeder
     php artisan db:seed --force --no-interaction || echo "⚠️  Seeding failed or already completed"
+    
+    # Clear permission cache to ensure roles are fresh (critical for shared DB)
+    echo "🔄 Clearing permission cache (important for shared database)..."
+    php artisan permission:cache-reset || true
+    
+    # Verify admin user was created/updated and has admin role
+    # Since local and production share the same DB, we need to ensure existing users get the role
+    echo "🔍 Verifying admin user setup..."
+    echo "   Note: Since local and production share the same database,"
+    echo "   make sure FILAMENT_ADMIN_EMAIL matches the email you use to login."
+    php artisan tinker --execute="
+        \$email = env('FILAMENT_ADMIN_EMAIL', 'admin@example.com');
+        \$user = \App\Models\User::where('email', \$email)->first();
+        
+        if (\$user) {
+            // Refresh user to clear any cached relationships
+            \$user->load('roles');
+            \$hasAdminRole = \$user->hasRole('admin');
+            \$roles = \$user->roles->pluck('name')->join(', ') ?: 'none';
+            
+            echo 'Found user: ' . \$user->name . ' (' . \$user->email . ')' . PHP_EOL;
+            echo 'User ID: ' . \$user->id . PHP_EOL;
+            echo 'Has admin role: ' . (\$hasAdminRole ? 'YES ✅' : 'NO ❌') . PHP_EOL;
+            echo 'Current roles: ' . \$roles . PHP_EOL;
+            
+            if (!\$hasAdminRole) {
+                echo '⚠️  WARNING: User does not have admin role! Fixing now...' . PHP_EOL;
+                
+                // Ensure admin role exists
+                \$adminRole = \Spatie\Permission\Models\Role::where('name', 'admin')->where('guard_name', 'web')->first();
+                if (!\$adminRole) {
+                    echo '❌ ERROR: Admin role does not exist in database!' . PHP_EOL;
+                    echo 'Please run: php artisan db:seed --class=PermissionRoleSeeder' . PHP_EOL;
+                } else {
+                    // Assign admin role (syncRoles removes other roles, which is what we want)
+                    \$user->syncRoles(['admin']);
+                    
+                    // Clear cache and refresh
+                    app()['cache']->forget('spatie.permission.cache');
+                    \$user->refresh();
+                    \$user->load('roles');
+                    
+                    // Verify it worked
+                    if (\$user->hasRole('admin')) {
+                        echo '✅ Admin role assigned successfully!' . PHP_EOL;
+                    } else {
+                        echo '❌ Failed to assign admin role. Please check database manually.' . PHP_EOL;
+                    }
+                }
+            } else {
+                echo '✅ User already has admin role - no action needed.' . PHP_EOL;
+            }
+        } else {
+            echo '⚠️  User not found with email: ' . \$email . PHP_EOL;
+            echo 'The seeder should create this user. Checking all users...' . PHP_EOL;
+            \$allUsers = \App\Models\User::all();
+            echo 'Total users in database: ' . \$allUsers->count() . PHP_EOL;
+            foreach (\$allUsers as \$u) {
+                echo '  - ' . \$u->email . ' (ID: ' . \$u->id . ')' . PHP_EOL;
+            }
+        }
+    " || echo "⚠️  Could not verify admin user (tinker failed)"
 else
     echo "⏭️  Database seeding skipped (SEED_DATABASE=false)"
 fi

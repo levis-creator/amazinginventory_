@@ -1,9 +1,10 @@
 services:
   # Laravel Web Service
   # Note: Using Supabase for database and storage (configured via environment variables)
-  # Using Docker - Render auto-detects Docker from dockerfilePath
+  # Using Docker runtime for PHP application
   - type: web
     name: amazinginventory-web
+    runtime: docker
     plan: starter
     dockerfilePath: ./Dockerfile
     dockerContext: .

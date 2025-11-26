@@ -102,6 +102,10 @@ php artisan event:cache || true
 echo "🚀 Optimizing Laravel application..."
 php artisan optimize || true
 
+# Publish Filament assets (ensures CSS/JS are available)
+echo "📦 Publishing Filament assets..."
+php artisan filament:assets || echo "⚠️  Filament assets publish failed, continuing anyway..."
+
 # Optimize Filament for production
 # This caches Filament components and Blade Icons for better performance
 echo "🎨 Optimizing Filament panel..."

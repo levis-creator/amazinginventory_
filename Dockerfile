@@ -109,6 +109,9 @@ RUN php artisan package:discover --ansi || echo "⚠️  Package discovery skipp
 # Ensure Filament assets are up to date (runs via composer script, but explicit for clarity)
 RUN php artisan filament:upgrade || echo "⚠️  Filament upgrade skipped"
 
+# Publish Filament assets to public directory
+RUN php artisan filament:assets || echo "⚠️  Filament assets publish skipped"
+
 # Build frontend assets
 # Note: Assets are built with a placeholder APP_URL, which will be updated at runtime
 RUN npm run build

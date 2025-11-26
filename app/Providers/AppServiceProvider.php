@@ -19,6 +19,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Force HTTPS URLs in production to prevent mixed content issues
+        // This ensures Filament assets load correctly
+        if (config('app.env') !== 'local') {
+            \Illuminate\Support\Facades\URL::forceScheme('https');
+        }
     }
 }

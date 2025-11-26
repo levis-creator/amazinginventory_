@@ -52,6 +52,15 @@ fi
 echo "🗄️  Running database migrations..."
 php artisan migrate --force --no-interaction || echo "⚠️  Migration failed or already up to date"
 
+# Seed database (creates admin user, roles, and permissions)
+# The seeder uses firstOrCreate, so it's safe to run multiple times
+if [ "${SEED_DATABASE:-true}" = "true" ]; then
+    echo "🌱 Seeding database with admin user, roles, and permissions..."
+    php artisan db:seed --force --no-interaction || echo "⚠️  Seeding failed or already completed"
+else
+    echo "⏭️  Database seeding skipped (SEED_DATABASE=false)"
+fi
+
 # Clear and cache configuration (only if not already cached)
 if [ ! -f "bootstrap/cache/config.php" ]; then
     echo "⚡ Caching configuration..."

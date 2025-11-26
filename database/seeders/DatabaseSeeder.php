@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -49,14 +50,23 @@ class DatabaseSeeder extends Seeder
         $userRole->givePermissionTo(['view users']);
 
         // Create Filament admin user from environment variables
+        $adminEmail = env('FILAMENT_ADMIN_EMAIL', 'admin@example.com');
+        $adminPassword = env('FILAMENT_ADMIN_PASSWORD', 'password');
+        
         $adminUser = User::firstOrCreate(
-            ['email' => env('FILAMENT_ADMIN_EMAIL', 'admin@example.com')],
+            ['email' => $adminEmail],
             [
                 'name' => env('FILAMENT_ADMIN_NAME', 'Admin User'),
-                'password' => env('FILAMENT_ADMIN_PASSWORD', 'password'),
+                'password' => Hash::make($adminPassword),
                 'email_verified_at' => now(),
             ]
         );
+        
+        // Update password if it was changed in environment (for existing users)
+        if ($adminUser->wasRecentlyCreated === false && $adminPassword !== 'password') {
+            $adminUser->password = Hash::make($adminPassword);
+            $adminUser->save();
+        }
 
         // Assign admin role to admin user
         if (! $adminUser->hasRole('admin')) {

@@ -1,0 +1,95 @@
+services:
+  # Laravel Web Service
+  # Note: Using Supabase for database and storage (configured via environment variables)
+  - type: web
+    name: amazinginventory-web
+    runtime: php
+    plan: starter
+    buildCommand: ./render-build.sh
+    startCommand: php artisan serve --host=0.0.0.0 --port=$PORT
+    healthCheckPath: /
+    envVars:
+      # Application Settings
+      - key: APP_NAME
+        value: Laravel
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_URL
+        sync: false  # Set this in Render dashboard after deployment (e.g., https://amazinginventory-web.onrender.com)
+      - key: APP_KEY
+        generateValue: true
+      - key: LOG_CHANNEL
+        value: stack
+      - key: LOG_LEVEL
+        value: error
+      
+      # Supabase Database Configuration
+      # Get these from Supabase Dashboard > Project Settings > Database
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        sync: false  # Set to: db.your-project-ref.supabase.co
+      - key: DB_PORT
+        sync: false  # Set to: 6543 (pooler) or 5432 (direct)
+      - key: DB_DATABASE
+        sync: false  # Set to: postgres
+      - key: DB_USERNAME
+        sync: false  # Set to: postgres.your-project-ref
+      - key: DB_PASSWORD
+        sync: false  # Set to your Supabase database password
+      - key: DB_SSLMODE
+        value: require
+      
+      # Session & Cache (using Supabase database)
+      - key: SESSION_DRIVER
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: database
+      
+      # Supabase Storage Configuration
+      # Get these from Supabase Dashboard > Project Settings > API
+      - key: FILESYSTEM_DISK
+        value: supabase
+      - key: SUPABASE_URL
+        sync: false  # Set to: https://your-project-ref.supabase.co
+      - key: SUPABASE_ANON_KEY
+        sync: false  # Set to your Supabase anon key
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false  # Set to your Supabase service role key
+      - key: SUPABASE_PROJECT_REF
+        sync: false  # Set to your Supabase project ref
+      - key: SUPABASE_STORAGE_ACCESS_KEY
+        sync: false  # Set to your Supabase service role key
+      - key: SUPABASE_STORAGE_SECRET_KEY
+        sync: false  # Set to your Supabase service role key
+      - key: SUPABASE_STORAGE_BUCKET
+        value: laravel-storage
+      - key: SUPABASE_STORAGE_ENDPOINT
+        sync: false  # Set to: https://your-project-ref.supabase.co/storage/v1/s3
+      - key: SUPABASE_STORAGE_URL
+        sync: false  # Set to: https://your-project-ref.supabase.co/storage/v1/object/public/laravel-storage
+      - key: SUPABASE_STORAGE_REGION
+        value: us-east-1
+      
+      # Other Settings
+      - key: BROADCAST_CONNECTION
+        value: log
+      - key: MAIL_MAILER
+        value: log
+      
+      # Filament Admin Credentials
+      - key: FILAMENT_ADMIN_EMAIL
+        sync: false  # Set in Render dashboard
+      - key: FILAMENT_ADMIN_PASSWORD
+        sync: false  # Set in Render dashboard
+      - key: FILAMENT_ADMIN_NAME
+        value: Admin User
+      
+      # API Documentation
+      - key: L5_SWAGGER_GENERATE_ALWAYS
+        value: false
+

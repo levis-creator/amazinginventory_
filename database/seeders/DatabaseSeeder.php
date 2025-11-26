@@ -52,25 +52,54 @@ class DatabaseSeeder extends Seeder
         // Create Filament admin user from environment variables
         $adminEmail = env('FILAMENT_ADMIN_EMAIL', 'admin@example.com');
         $adminPassword = env('FILAMENT_ADMIN_PASSWORD', 'password');
+        $adminName = env('FILAMENT_ADMIN_NAME', 'Admin User');
         
+        // Find or create admin user
         $adminUser = User::firstOrCreate(
             ['email' => $adminEmail],
             [
-                'name' => env('FILAMENT_ADMIN_NAME', 'Admin User'),
+                'name' => $adminName,
                 'password' => Hash::make($adminPassword),
                 'email_verified_at' => now(),
             ]
         );
         
-        // Update password if it was changed in environment (for existing users)
-        if ($adminUser->wasRecentlyCreated === false && $adminPassword !== 'password') {
-            $adminUser->password = Hash::make($adminPassword);
+        // Update user details if they exist (name, password, email verification)
+        $wasRecentlyCreated = $adminUser->wasRecentlyCreated;
+        if (! $wasRecentlyCreated) {
+            // Update name if changed
+            if ($adminUser->name !== $adminName) {
+                $adminUser->name = $adminName;
+            }
+            
+            // Update password if changed in environment
+            if ($adminPassword !== 'password') {
+                $adminUser->password = Hash::make($adminPassword);
+            }
+            
+            // Ensure email is verified
+            if (! $adminUser->email_verified_at) {
+                $adminUser->email_verified_at = now();
+            }
+            
             $adminUser->save();
         }
 
-        // Assign admin role to admin user
+        // Ensure admin user has admin role (which includes all permissions)
+        // Use syncRoles to remove any other roles and ensure only admin role is assigned
+        $adminUser->syncRoles(['admin']);
+        
+        // Double-check: if for some reason the role wasn't assigned, assign it explicitly
         if (! $adminUser->hasRole('admin')) {
             $adminUser->assignRole('admin');
+        }
+        
+        // Verify the admin role has all permissions
+        $adminRolePermissions = $adminRole->permissions->pluck('name')->toArray();
+        $missingPermissions = array_diff($permissions, $adminRolePermissions);
+        if (!empty($missingPermissions)) {
+            // If any permissions are missing from the admin role, add them
+            $adminRole->givePermissionTo($missingPermissions);
         }
     }
 }

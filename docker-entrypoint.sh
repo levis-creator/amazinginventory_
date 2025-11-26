@@ -106,6 +106,39 @@ php artisan optimize || true
 echo "📦 Publishing Filament assets..."
 php artisan filament:assets || echo "⚠️  Filament assets publish failed, continuing anyway..."
 
+# Ensure public directory and assets are accessible
+echo "🔐 Setting proper permissions for public directory..."
+chmod -R 755 public/ || true
+chown -R www-data:www-data public/ || true
+
+# Verify public/index.php exists and is accessible
+if [ ! -f "public/index.php" ]; then
+    echo "⚠️  WARNING: public/index.php not found!"
+else
+    chmod 644 public/index.php || true
+    echo "✅ public/index.php is accessible"
+fi
+
+# Ensure Filament assets directory is accessible
+if [ -d "public/filament" ]; then
+    echo "✅ Filament assets directory found, setting permissions..."
+    chmod -R 755 public/filament/ || true
+    chown -R www-data:www-data public/filament/ || true
+    # List Filament assets for debugging
+    echo "📁 Filament assets: $(find public/filament -type f | wc -l) files"
+else
+    echo "⚠️  WARNING: public/filament directory not found! Filament assets may not be published."
+fi
+
+# Ensure build assets are accessible
+if [ -d "public/build" ]; then
+    echo "✅ Build assets directory found, setting permissions..."
+    chmod -R 755 public/build/ || true
+    chown -R www-data:www-data public/build/ || true
+else
+    echo "⚠️  WARNING: public/build directory not found!"
+fi
+
 # Optimize Filament for production
 # This caches Filament components and Blade Icons for better performance
 echo "🎨 Optimizing Filament panel..."
@@ -116,5 +149,7 @@ echo "🌟 Starting PHP development server..."
 # Render provides PORT environment variable, default to 80 if not set
 PORT=${PORT:-80}
 echo "🌐 Binding to port $PORT..."
+# Ensure we're in the correct directory and serve from public directory
+cd /var/www/html
 exec php artisan serve --host=0.0.0.0 --port=$PORT
 

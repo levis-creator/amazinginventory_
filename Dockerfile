@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-configure intl \
     && docker-php-ext-install -j$(nproc) \
         pdo \
+        pdo_sqlite \
         pdo_pgsql \
         mbstring \
         exif \
@@ -82,8 +83,9 @@ RUN mkdir -p storage/app/public \
     storage/framework/views \
     storage/logs \
     bootstrap/cache \
-    && chown -R www-data:www-data storage bootstrap/cache \
-    && chmod -R 775 storage bootstrap/cache
+    database \
+    && chown -R www-data:www-data storage bootstrap/cache database \
+    && chmod -R 775 storage bootstrap/cache database
 
 # Create a minimal .env file for artisan commands (if it doesn't exist)
 # This prevents errors when running artisan commands during build

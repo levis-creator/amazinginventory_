@@ -1,12 +1,14 @@
 services:
   # Laravel Web Service
   # Note: Using Supabase for database and storage (configured via environment variables)
+  # Using Docker runtime since Render doesn't have PHP as a direct language option
   - type: web
     name: amazinginventory-web
-    runtime: php
+    runtime: docker
     plan: starter
-    buildCommand: ./render-build.sh
-    startCommand: php artisan serve --host=0.0.0.0 --port=$PORT
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: php artisan serve --host=0.0.0.0 --port=$PORT
     healthCheckPath: /
     envVars:
       # Application Settings

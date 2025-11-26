@@ -20,6 +20,10 @@ Quick reference for deploying to Render with Supabase.
 3. Connect your Git repository
 4. Render will detect `render.yaml` and create the web service
 
+**Note:** If using manual setup instead of Blueprint:
+- Select **"Docker"** as the runtime (not PHP, as it's not in the dropdown)
+- The Dockerfile will handle PHP 8.2 setup automatically
+
 ### 2. Configure Environment Variables
 
 Go to your web service → **Environment** tab and add:

@@ -109,10 +109,17 @@ Before deploying to Render, you need to set up Supabase:
    - Connect your Git repository
    - Configure:
      - **Name:** `amazinginventory-web`
-     - **Runtime:** PHP
-     - **Build Command:** `./render-build.sh`
-     - **Start Command:** `php artisan serve --host=0.0.0.0 --port=$PORT`
+     - **Runtime:** **Docker** (PHP is not available in the dropdown, so use Docker)
+     - **Dockerfile Path:** `./Dockerfile` (or leave empty if Dockerfile is in root)
+     - **Docker Context:** `.` (root directory)
+     - **Docker Command:** `php artisan serve --host=0.0.0.0 --port=$PORT`
      - **Plan:** Starter (or higher)
+   
+   **Important:** The Dockerfile will automatically:
+   - Install PHP 8.2 with required extensions
+   - Install Composer and Node.js
+   - Build your application assets
+   - Set up Laravel storage
 
 2. **Configure Environment Variables:**
    Add the following environment variables in the Render dashboard:

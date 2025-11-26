@@ -1,5 +1,5 @@
-# Use PHP 8.2 CLI (lighter than Apache, better for Render)
-FROM php:8.2-cli
+# Use PHP 8.3 CLI (required for openspout/openspout v4.32.0)
+FROM php:8.3-cli
 
 # Set working directory
 WORKDIR /var/www/html

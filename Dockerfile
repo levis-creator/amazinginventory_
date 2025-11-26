@@ -85,6 +85,10 @@ RUN php artisan storage:link || true
 # Run Composer scripts (package discovery, etc.)
 RUN composer dump-autoload --optimize --classmap-authoritative
 
+# Copy and set up entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Expose port (Render will use $PORT environment variable)
 EXPOSE 80
 
@@ -92,7 +96,6 @@ EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
     CMD php artisan route:list > /dev/null 2>&1 || exit 1
 
-# Default command (Render will override with dockerCommand from render.yaml)
-# Using sh -c to properly handle $PORT environment variable
-CMD sh -c "php artisan serve --host=0.0.0.0 --port=${PORT:-80}"
+# Use entrypoint script to run migrations on startup
+ENTRYPOINT ["docker-entrypoint.sh"]
 

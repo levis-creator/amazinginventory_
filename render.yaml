@@ -8,7 +8,8 @@ services:
     plan: starter
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    dockerCommand: php artisan serve --host=0.0.0.0 --port=$PORT
+    # dockerCommand is handled by docker-entrypoint.sh
+    # The entrypoint script runs migrations and starts the server
     healthCheckPath: /
     envVars:
       # Application Settings

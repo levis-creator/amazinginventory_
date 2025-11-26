@@ -61,14 +61,42 @@ else
     echo "⏭️  Database seeding skipped (SEED_DATABASE=false)"
 fi
 
-# Clear and cache configuration (only if not already cached)
-if [ ! -f "bootstrap/cache/config.php" ]; then
-    echo "⚡ Caching configuration..."
-    php artisan config:cache || true
-    php artisan route:cache || true
-    php artisan view:cache || true
-    php artisan event:cache || true
+# Clear all caches first to ensure fresh configuration
+echo "🧹 Clearing caches..."
+php artisan config:clear || true
+php artisan route:clear || true
+php artisan view:clear || true
+php artisan cache:clear || true
+
+# Verify APP_URL is set (critical for asset URLs)
+if [ -z "$APP_URL" ]; then
+    echo "⚠️  WARNING: APP_URL is not set! This may cause asset loading issues."
+    echo "   Please set APP_URL in your Render environment variables."
+else
+    echo "✅ APP_URL is set to: $APP_URL"
 fi
+
+# Verify assets are built
+if [ ! -f "public/build/manifest.json" ]; then
+    echo "⚠️  WARNING: Build manifest not found! Rebuilding assets..."
+    npm run build || echo "⚠️  Asset build failed, continuing anyway..."
+else
+    echo "✅ Asset manifest found at public/build/manifest.json"
+    # Verify assets directory exists
+    if [ -d "public/build/assets" ]; then
+        ASSET_COUNT=$(find public/build/assets -type f | wc -l)
+        echo "✅ Found $ASSET_COUNT asset files in public/build/assets/"
+    else
+        echo "⚠️  WARNING: public/build/assets directory not found!"
+    fi
+fi
+
+# Cache configuration with current environment variables (including APP_URL)
+echo "⚡ Caching configuration with current environment..."
+php artisan config:cache || true
+php artisan route:cache || true
+php artisan view:cache || true
+php artisan event:cache || true
 
 # Start the application
 echo "🌟 Starting PHP development server..."

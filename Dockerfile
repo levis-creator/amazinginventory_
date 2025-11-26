@@ -88,11 +88,13 @@ RUN mkdir -p storage/app/public \
 
 # Create a minimal .env file for artisan commands (if it doesn't exist)
 # This prevents errors when running artisan commands during build
+# Note: APP_URL will be set at runtime via environment variables
 RUN if [ ! -f .env ]; then \
         echo "APP_NAME=Laravel" > .env && \
         echo "APP_ENV=production" >> .env && \
         echo "APP_KEY=" >> .env && \
-        echo "APP_DEBUG=false" >> .env; \
+        echo "APP_DEBUG=false" >> .env && \
+        echo "APP_URL=http://localhost" >> .env; \
     fi
 
 # Run Composer scripts now that Laravel files are available
@@ -103,7 +105,14 @@ RUN composer dump-autoload --optimize --classmap-authoritative
 RUN php artisan package:discover --ansi || echo "⚠️  Package discovery skipped"
 
 # Build frontend assets
+# Note: Assets are built with a placeholder APP_URL, which will be updated at runtime
 RUN npm run build
+
+# Verify build output exists
+RUN if [ ! -f "public/build/manifest.json" ]; then \
+        echo "⚠️  WARNING: Build manifest not found!" && \
+        exit 1; \
+    fi
 
 # Create storage symbolic link
 RUN php artisan storage:link || true

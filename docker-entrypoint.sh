@@ -134,11 +134,11 @@ else
 fi
 
 # Clear all caches first to ensure fresh configuration
-echo "🧹 Clearing caches..."
-php artisan config:clear || true
-php artisan route:clear || true
-php artisan view:clear || true
-php artisan cache:clear || true
+# This is especially important after code changes like implementing FilamentUser interface
+echo "🧹 Clearing all caches (important after FilamentUser interface implementation)..."
+php artisan optimize:clear || true
+# Also clear permission cache separately (Spatie Permission)
+php artisan permission:cache-reset || php artisan cache:clear || true
 
 # Verify APP_URL is set (critical for asset URLs)
 if [ -z "$APP_URL" ]; then

@@ -188,6 +188,14 @@ class SystemDatabaseServiceProvider extends ServiceProvider
                 $connectionName = $config->name;
                 $connectionConfig = $config->toConnectionArray();
 
+                // Ensure PostgreSQL connections use emulated prepares to avoid pooler issues
+                if (($connectionConfig['driver'] ?? null) === 'pgsql') {
+                    $connectionConfig['options'] = array_merge($connectionConfig['options'] ?? [], [
+                        PDO::ATTR_EMULATE_PREPARES => true,
+                        PDO::ATTR_PERSISTENT => false,
+                    ]);
+                }
+
                 // Update Laravel config - this overrides .env settings
                 config(["database.connections.{$connectionName}" => $connectionConfig]);
 
@@ -201,6 +209,14 @@ class SystemDatabaseServiceProvider extends ServiceProvider
             if ($defaultConfig) {
                 $defaultConnectionName = $defaultConfig->name;
                 $defaultConnectionConfig = $defaultConfig->toConnectionArray();
+
+                // Ensure PostgreSQL connections use emulated prepares to avoid pooler issues
+                if (($defaultConnectionConfig['driver'] ?? null) === 'pgsql') {
+                    $defaultConnectionConfig['options'] = array_merge($defaultConnectionConfig['options'] ?? [], [
+                        PDO::ATTR_EMULATE_PREPARES => true,
+                        PDO::ATTR_PERSISTENT => false,
+                    ]);
+                }
 
                 // Get current default to purge if it's different
                 $currentDefault = config('database.default');
@@ -219,12 +235,21 @@ class SystemDatabaseServiceProvider extends ServiceProvider
                         \Log::debug("Error storing previous default: " . $e->getMessage());
                     }
                     
-                    // Purge old default connection
+                    // Purge old default connection and disconnect
                     try {
                         DB::purge($currentDefault);
                         // Also purge by driver if it was using driver name
                         if ($currentConfig && isset($currentConfig['driver'])) {
                             DB::purge($currentConfig['driver']);
+                        }
+                        // Try to disconnect the old connection
+                        try {
+                            $oldConnection = DB::connection($currentDefault);
+                            if (method_exists($oldConnection, 'disconnect')) {
+                                $oldConnection->disconnect();
+                            }
+                        } catch (\Exception $e) {
+                            // Ignore disconnect errors
                         }
                     } catch (\Exception $e) {
                         \Log::debug("Error purging old default connection: " . $e->getMessage());

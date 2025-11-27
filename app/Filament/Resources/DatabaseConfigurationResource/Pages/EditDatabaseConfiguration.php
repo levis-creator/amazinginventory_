@@ -21,9 +21,12 @@ class EditDatabaseConfiguration extends EditRecord
                 ->label('Test Connection')
                 ->icon('heroicon-o-check-circle')
                 ->color('success')
+                ->size('md')
+                ->outlined()
                 ->requiresConfirmation()
                 ->modalHeading('Test Database Connection')
-                ->modalDescription('This will test the connection with the current form values.')
+                ->modalDescription('This will test the connection with the current form values. Make sure all required fields are filled before testing.')
+                ->modalSubmitActionLabel('Test Now')
                 ->action(function () {
                     try {
                         $data = $this->form->getState();

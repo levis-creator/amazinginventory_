@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::connection('system')->hasTable('database_configurations')) {
+            return;
+        }
+        
         Schema::connection('system')->create('database_configurations', function (Blueprint $table) {
             $table->id();
             $table->string('name')->unique()->comment('Connection name/identifier');

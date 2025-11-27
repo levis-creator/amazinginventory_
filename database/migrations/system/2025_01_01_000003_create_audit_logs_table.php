@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::connection('system')->hasTable('audit_logs')) {
+            return;
+        }
+        
         Schema::connection('system')->create('audit_logs', function (Blueprint $table) {
             $table->id();
             $table->string('action')->comment('create, update, delete, test_connection, etc.');

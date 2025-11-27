@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::connection('system')->hasTable('system_settings')) {
+            return;
+        }
+        
         Schema::connection('system')->create('system_settings', function (Blueprint $table) {
             $table->id();
             $table->string('key')->unique();

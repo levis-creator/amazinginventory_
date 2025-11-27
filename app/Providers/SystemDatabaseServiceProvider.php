@@ -7,6 +7,7 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Exception;
+use PDO;
 
 class SystemDatabaseServiceProvider extends ServiceProvider
 {

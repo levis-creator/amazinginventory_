@@ -32,6 +32,9 @@ class PermissionRoleSeeder extends Seeder
             'create permissions',
             'update permissions',
             'delete permissions',
+            
+            // Database configuration management permissions (super admin only)
+            'manage database configurations',
         ];
 
         // Create all permissions
@@ -52,6 +55,16 @@ class PermissionRoleSeeder extends Seeder
         );
         $adminRole->syncPermissions($permissions);
         $this->command->info("  ✓ Admin role created/verified with " . count($permissions) . " permissions");
+
+        // Create super_admin role with database configuration management
+        $this->command->info('Creating super_admin role...');
+        $superAdminRole = Role::firstOrCreate(
+            ['name' => 'super_admin', 'guard_name' => 'web'],
+            ['name' => 'super_admin', 'guard_name' => 'web']
+        );
+        $superAdminPermissions = array_merge($permissions, ['manage database configurations']);
+        $superAdminRole->syncPermissions($superAdminPermissions);
+        $this->command->info("  ✓ Super admin role created/verified with " . count($superAdminPermissions) . " permissions");
 
         // Create user role with limited permissions
         $this->command->info('Creating user role...');
@@ -75,8 +88,9 @@ class PermissionRoleSeeder extends Seeder
         $this->command->newLine();
         $this->command->info('Summary:');
         $this->command->line("  - Permissions: " . count($permissions));
-        $this->command->line("  - Roles: 2 (admin, user)");
+        $this->command->line("  - Roles: 3 (admin, super_admin, user)");
         $this->command->line("  - Admin role permissions: " . $adminRole->permissions->count());
+        $this->command->line("  - Super admin role permissions: " . $superAdminRole->permissions->count());
         $this->command->line("  - User role permissions: " . $userRole->permissions->count());
     }
 }

@@ -15,82 +15,152 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Seed permissions and roles first
+        // Seed system database first (if system DB is available)
+        try {
+            if (\Illuminate\Support\Facades\Schema::connection('system')->hasTable('system_settings')) {
+                $this->call([
+                    SystemDatabaseSeeder::class,
+                ]);
+            }
+        } catch (\Exception $e) {
+            $this->command->warn('⚠️  System database not available, skipping system seeding: ' . $e->getMessage());
+        }
+
+        // Seed permissions and roles
         $this->call([
             PermissionRoleSeeder::class,
         ]);
 
-        // Get the admin role for later use
+        // Get roles for later use
         $adminRole = Role::where('name', 'admin')->where('guard_name', 'web')->first();
+        $superAdminRole = Role::where('name', 'super_admin')->where('guard_name', 'web')->first();
         $permissions = Permission::where('guard_name', 'web')->pluck('name')->toArray();
 
-        // Create Filament admin user from environment variables
-        $adminEmail = env('FILAMENT_ADMIN_EMAIL', 'admin@example.com');
-        $adminPassword = env('FILAMENT_ADMIN_PASSWORD', 'password');
-        $adminName = env('FILAMENT_ADMIN_NAME', 'Admin User');
+        // ============================================
+        // Create Super Admin User (from FILAMENT_ADMIN_EMAIL)
+        // ============================================
+        $superAdminEmail = env('FILAMENT_ADMIN_EMAIL', 'admin@example.com');
+        $superAdminPassword = env('FILAMENT_ADMIN_PASSWORD', 'SecurePassword123!');
+        $superAdminName = env('FILAMENT_ADMIN_NAME', 'Super Admin User');
         
-        // Find or create admin user
-        $adminUser = User::firstOrCreate(
-            ['email' => $adminEmail],
+        $this->command->info("Creating super admin user from FILAMENT_ADMIN_EMAIL: {$superAdminEmail}");
+        
+        // Find or create super admin user
+        $superAdminUser = User::firstOrCreate(
+            ['email' => $superAdminEmail],
             [
-                'name' => $adminName,
-                'password' => Hash::make($adminPassword),
+                'name' => $superAdminName,
+                'password' => Hash::make($superAdminPassword),
                 'email_verified_at' => now(),
             ]
         );
         
-        // Update user details if they exist (name, password, email verification)
-        $wasRecentlyCreated = $adminUser->wasRecentlyCreated;
+        // Update user details if they exist
+        $wasRecentlyCreated = $superAdminUser->wasRecentlyCreated;
         if (! $wasRecentlyCreated) {
-            // Update name if changed
-            if ($adminUser->name !== $adminName) {
-                $adminUser->name = $adminName;
+            if ($superAdminUser->name !== $superAdminName) {
+                $superAdminUser->name = $superAdminName;
             }
             
-            // Update password if changed in environment
-            if ($adminPassword !== 'password') {
-                $adminUser->password = Hash::make($adminPassword);
+            // Always update password to match environment
+            $superAdminUser->password = Hash::make($superAdminPassword);
+            
+            if (! $superAdminUser->email_verified_at) {
+                $superAdminUser->email_verified_at = now();
             }
             
-            // Ensure email is verified
-            if (! $adminUser->email_verified_at) {
-                $adminUser->email_verified_at = now();
-            }
-            
-            $adminUser->save();
+            $superAdminUser->save();
         }
 
-        // Ensure admin user has admin role (which includes all permissions)
-        // Use syncRoles to remove any other roles and ensure only admin role is assigned
-        $adminUser->syncRoles(['admin']);
+        // Assign super_admin role (includes all permissions + database config management)
+        $superAdminUser->syncRoles(['super_admin']);
         
-        // Clear permission cache to ensure fresh role check
+        // Clear permission cache
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        $superAdminUser->refresh();
+        $superAdminUser->load('roles');
         
-        // Refresh user model to clear any cached relationships
-        $adminUser->refresh();
-        $adminUser->load('roles');
+        // Verify super_admin role assignment
+        if (! $superAdminUser->hasRole('super_admin')) {
+            $superAdminUser->assignRole('super_admin');
+            app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+            $superAdminUser->refresh();
+            $superAdminUser->load('roles');
+        }
         
-        // Double-check: if for some reason the role wasn't assigned, assign it explicitly
-        if (! $adminUser->hasRole('admin')) {
-            $adminUser->assignRole('admin');
-            // Clear cache again after assignment
+        $this->command->info("✅ Super admin user '{$superAdminUser->email}' has been assigned super_admin role");
+
+        // ============================================
+        // Create Admin User (with default password)
+        // ============================================
+        $adminEmail = 'admin@amazinginventory.com';
+        $adminPassword = 'SecurePassword123!';
+        $adminName = 'Admin User';
+        
+        $this->command->info("Creating admin user: {$adminEmail}");
+        
+        // Find or create admin user (only if email is different from super admin)
+        if ($adminEmail !== $superAdminEmail) {
+            $adminUser = User::firstOrCreate(
+                ['email' => $adminEmail],
+                [
+                    'name' => $adminName,
+                    'password' => Hash::make($adminPassword),
+                    'email_verified_at' => now(),
+                ]
+            );
+            
+            // Update user details if they exist
+            $wasRecentlyCreated = $adminUser->wasRecentlyCreated;
+            if (! $wasRecentlyCreated) {
+                if ($adminUser->name !== $adminName) {
+                    $adminUser->name = $adminName;
+                }
+                
+                // Always update password to default
+                $adminUser->password = Hash::make($adminPassword);
+                
+                if (! $adminUser->email_verified_at) {
+                    $adminUser->email_verified_at = now();
+                }
+                
+                $adminUser->save();
+            }
+
+            // Assign admin role
+            $adminUser->syncRoles(['admin']);
+            
+            // Clear permission cache
             app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
             $adminUser->refresh();
             $adminUser->load('roles');
+            
+            // Verify admin role assignment
+            if (! $adminUser->hasRole('admin')) {
+                $adminUser->assignRole('admin');
+                app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+                $adminUser->refresh();
+                $adminUser->load('roles');
+            }
+            
+            $this->command->info("✅ Admin user '{$adminUser->email}' has been assigned admin role");
+        } else {
+            $this->command->info("⚠️  Admin email matches super admin email. Skipping admin user creation.");
         }
         
-        // Verify the admin role has all permissions
+        // Verify the admin role has all permissions (except super admin only permissions)
+        $adminPermissions = array_filter($permissions, fn($perm) => $perm !== 'manage database configurations');
         $adminRolePermissions = $adminRole->permissions->pluck('name')->toArray();
-        $missingPermissions = array_diff($permissions, $adminRolePermissions);
+        $missingPermissions = array_diff($adminPermissions, $adminRolePermissions);
         if (!empty($missingPermissions)) {
-            // If any permissions are missing from the admin role, add them
             $adminRole->givePermissionTo($missingPermissions);
         }
         
-        // Since local and production share the same DB, also ensure any other existing users
-        // that might need admin access get it (if they match the admin email pattern)
-        // This is a safety measure for shared database scenarios
-        $this->command->info("✅ Admin user '{$adminUser->email}' has been assigned admin role");
+        // Verify the super_admin role has all permissions
+        $superAdminRolePermissions = $superAdminRole->permissions->pluck('name')->toArray();
+        $missingSuperAdminPermissions = array_diff($permissions, $superAdminRolePermissions);
+        if (!empty($missingSuperAdminPermissions)) {
+            $superAdminRole->givePermissionTo($missingSuperAdminPermissions);
+        }
     }
 }

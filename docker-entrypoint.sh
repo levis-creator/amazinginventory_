@@ -48,14 +48,19 @@ else
     fi
 fi
 
-# Run database migrations
-echo "🗄️  Running database migrations..."
+# Run system database migrations first (needed for seeding)
+echo "🗄️  Running system database migrations..."
+php artisan migrate --database=system --path=database/migrations/system --force --no-interaction || echo "⚠️  System migration failed or already up to date"
+
+# Run application database migrations
+echo "🗄️  Running application database migrations..."
 php artisan migrate --force --no-interaction || echo "⚠️  Migration failed or already up to date"
 
-# Seed database (creates admin user, roles, and permissions)
+# Seed databases (creates system settings, system admin, app users, roles, and permissions)
 # The seeder uses firstOrCreate, so it's safe to run multiple times
+# This seeds both system database and application database
 if [ "${SEED_DATABASE:-true}" = "true" ]; then
-    echo "🌱 Seeding database with admin user, roles, and permissions..."
+    echo "🌱 Seeding system database and application database..."
     
     # Check if FILAMENT_ADMIN_EMAIL is set
     if [ -z "$FILAMENT_ADMIN_EMAIL" ]; then

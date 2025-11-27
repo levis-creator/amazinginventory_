@@ -97,7 +97,9 @@ return [
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
             'options' => extension_loaded('pdo_pgsql') ? array_filter([
-                PDO::ATTR_EMULATE_PREPARES => env('DB_EMULATE_PREPARES', false),
+                // Disable prepared statement emulation for connection poolers (Supabase, etc.)
+                // This prevents "prepared statement does not exist" errors
+                PDO::ATTR_EMULATE_PREPARES => env('DB_EMULATE_PREPARES', true),
                 PDO::ATTR_PERSISTENT => false,
             ]) : [],
         ],
@@ -116,7 +118,9 @@ return [
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'require'),
             'options' => extension_loaded('pdo_pgsql') ? array_filter([
-                PDO::ATTR_EMULATE_PREPARES => env('DB_EMULATE_PREPARES', false),
+                // Enable prepared statement emulation for Supabase connection pooler
+                // This prevents "prepared statement does not exist" errors with poolers
+                PDO::ATTR_EMULATE_PREPARES => env('DB_EMULATE_PREPARES', true),
                 PDO::ATTR_PERSISTENT => false,
             ]) : [],
         ],
@@ -134,6 +138,33 @@ return [
             'prefix_indexes' => true,
             // 'encrypt' => env('DB_ENCRYPT', 'yes'),
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
+        ],
+
+        'system' => [
+            'driver' => env('SYSTEM_DB_CONNECTION', 'sqlite'),
+            'url' => env('SYSTEM_DB_URL'),
+            'database' => env('SYSTEM_DB_DATABASE', database_path('system.sqlite')),
+            'host' => env('SYSTEM_DB_HOST', '127.0.0.1'),
+            'port' => env('SYSTEM_DB_PORT', '3306'),
+            'username' => env('SYSTEM_DB_USERNAME', 'root'),
+            'password' => env('SYSTEM_DB_PASSWORD', ''),
+            'charset' => env('SYSTEM_DB_CHARSET', 'utf8mb4'),
+            'collation' => env('SYSTEM_DB_COLLATION', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'foreign_key_constraints' => env('SYSTEM_DB_FOREIGN_KEYS', true),
+            // SQLite specific
+            'busy_timeout' => null,
+            'journal_mode' => null,
+            'synchronous' => null,
+            'transaction_mode' => 'DEFERRED',
+            // PostgreSQL specific
+            'search_path' => 'public',
+            'sslmode' => env('SYSTEM_DB_SSLMODE', 'prefer'),
+            'options' => extension_loaded('pdo_pgsql') ? array_filter([
+                PDO::ATTR_EMULATE_PREPARES => env('SYSTEM_DB_EMULATE_PREPARES', false),
+                PDO::ATTR_PERSISTENT => false,
+            ]) : [],
         ],
 
     ],

@@ -1,0 +1,88 @@
+<?php
+
+namespace App\Filament\Resources\DatabaseConfigurationResource\Pages;
+
+use App\Filament\Resources\DatabaseConfigurationResource;
+use App\Services\AuditLogService;
+use App\Services\DatabaseConfigurationService;
+use Filament\Actions;
+use Filament\Resources\Pages\EditRecord;
+use Illuminate\Validation\ValidationException;
+
+class EditDatabaseConfiguration extends EditRecord
+{
+    protected static string $resource = DatabaseConfigurationResource::class;
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Actions\Action::make('test_connection')
+                ->label('Test Connection')
+                ->icon('heroicon-o-check-circle')
+                ->color('success')
+                ->requiresConfirmation()
+                ->modalHeading('Test Database Connection')
+                ->modalDescription('This will test the connection with the current form values.')
+                ->action(function () {
+                    $data = $this->form->getState();
+                    $service = app(DatabaseConfigurationService::class);
+                    $result = $service->testConnection($data);
+
+                    $auditService = app(AuditLogService::class);
+                    $auditService->logConnectionTest($this->record->name, $result['success'], $result['message'] ?? null);
+
+                    if ($result['success']) {
+                        \Filament\Notifications\Notification::make()
+                            ->title('Connection Successful')
+                            ->success()
+                            ->body("Connected to database: {$result['database']}" . ($result['version'] ? " (Version: {$result['version']})" : ''))
+                            ->send();
+                    } else {
+                        \Filament\Notifications\Notification::make()
+                            ->title('Connection Failed')
+                            ->danger()
+                            ->body($result['message'])
+                            ->send();
+                    }
+                }),
+
+            Actions\DeleteAction::make(),
+        ];
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        // Test connection before saving
+        $service = app(DatabaseConfigurationService::class);
+        $result = $service->testConnection($data);
+
+        if (!$result['success']) {
+            throw ValidationException::withMessages([
+                'driver' => 'Connection test failed: ' . $result['message'],
+            ]);
+        }
+
+        return $data;
+    }
+
+    protected function afterSave(): void
+    {
+        // Get old values for audit log
+        $oldValues = $this->record->getOriginal();
+        $newValues = $this->record->toArray();
+
+        // Log the update
+        $auditService = app(AuditLogService::class);
+        $auditService->logUpdate($this->record, $oldValues, $newValues);
+
+        // If this is set as default, apply it
+        if ($this->record->is_default) {
+            $service = app(DatabaseConfigurationService::class);
+            $service->setDefaultConnection($this->record);
+        }
+
+        // Clear cache
+        cache()->forget('database_configurations');
+    }
+}
+

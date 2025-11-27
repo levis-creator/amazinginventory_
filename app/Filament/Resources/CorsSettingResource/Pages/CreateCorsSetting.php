@@ -21,6 +21,12 @@ class CreateCorsSetting extends CreateRecord
         return $data;
     }
 
+    protected function afterCreate(): void
+    {
+        // Clear CORS config cache so changes take effect immediately
+        cache()->forget('cors_config');
+    }
+
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');

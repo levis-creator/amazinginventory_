@@ -8,39 +8,61 @@ class CorsService
 {
     /**
      * Get CORS configuration from database or fallback to env/config
+     * Cached for 5 minutes to prevent slow queries on every request
      */
     public static function getConfig(): array
     {
-        try {
-            $activeSetting = CorsSetting::getActive();
-            
-            if ($activeSetting) {
-                return [
-                    'paths' => $activeSetting->paths,
-                    'allowed_methods' => $activeSetting->allowed_methods,
-                    'allowed_origins' => $activeSetting->allowed_origins ?? [],
-                    'allowed_origins_patterns' => $activeSetting->allowed_origins_patterns,
-                    'allowed_headers' => $activeSetting->allowed_headers,
-                    'exposed_headers' => $activeSetting->exposed_headers,
-                    'max_age' => $activeSetting->max_age,
-                    'supports_credentials' => $activeSetting->supports_credentials,
-                ];
-            }
-        } catch (\Exception $e) {
-            // If database is not available (e.g., during migrations), fall through to default
-        }
+        // Use cache to prevent slow queries on every request
+        return cache()->remember('cors_config', 300, function () {
+            // Fallback config (used if database query fails or times out)
+            $fallbackConfig = [
+                'paths' => ['api/*', 'sanctum/csrf-cookie'],
+                'allowed_methods' => ['*'],
+                'allowed_origins' => explode(',', env('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173')),
+                'allowed_origins_patterns' => [],
+                'allowed_headers' => ['*'],
+                'exposed_headers' => [],
+                'max_age' => 0,
+                'supports_credentials' => true,
+            ];
 
-        // Fallback to env/config - use direct env() calls to avoid circular dependency
-        return [
-            'paths' => ['api/*', 'sanctum/csrf-cookie'],
-            'allowed_methods' => ['*'],
-            'allowed_origins' => explode(',', env('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173')),
-            'allowed_origins_patterns' => [],
-            'allowed_headers' => ['*'],
-            'exposed_headers' => [],
-            'max_age' => 0,
-            'supports_credentials' => true,
-        ];
+            try {
+                // Set a timeout for the query to prevent hanging
+                $originalTimeout = ini_get('default_socket_timeout');
+                ini_set('default_socket_timeout', 2); // 2 second timeout
+                
+                try {
+                    // Use DB facade directly with timeout protection
+                    $activeSetting = \Illuminate\Support\Facades\DB::table('cors_settings')
+                        ->where('is_active', true)
+                        ->first();
+                    
+                    if ($activeSetting) {
+                        return [
+                            'paths' => json_decode($activeSetting->paths, true) ?? $fallbackConfig['paths'],
+                            'allowed_methods' => json_decode($activeSetting->allowed_methods, true) ?? $fallbackConfig['allowed_methods'],
+                            'allowed_origins' => $activeSetting->allowed_origins ? json_decode($activeSetting->allowed_origins, true) : $fallbackConfig['allowed_origins'],
+                            'allowed_origins_patterns' => json_decode($activeSetting->allowed_origins_patterns, true) ?? $fallbackConfig['allowed_origins_patterns'],
+                            'allowed_headers' => json_decode($activeSetting->allowed_headers, true) ?? $fallbackConfig['allowed_headers'],
+                            'exposed_headers' => json_decode($activeSetting->exposed_headers, true) ?? $fallbackConfig['exposed_headers'],
+                            'max_age' => $activeSetting->max_age ?? $fallbackConfig['max_age'],
+                            'supports_credentials' => (bool)($activeSetting->supports_credentials ?? $fallbackConfig['supports_credentials']),
+                        ];
+                    }
+                } catch (\Exception $queryException) {
+                    // Query failed or timed out, use fallback
+                    \Log::debug('CORS database query failed: ' . $queryException->getMessage());
+                } finally {
+                    // Restore original timeout
+                    ini_set('default_socket_timeout', $originalTimeout);
+                }
+            } catch (\Exception $e) {
+                // If database is not available (e.g., during migrations), fall through to default
+                \Log::debug('CORS config load failed: ' . $e->getMessage());
+            }
+
+            return $fallbackConfig;
+        });
     }
 }
 

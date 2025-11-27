@@ -39,8 +39,15 @@ class DatabaseConfigurationService
                 $connectionConfig['options'] = [
                     PDO::ATTR_EMULATE_PREPARES => true,
                     PDO::ATTR_PERSISTENT => false,
+                    PDO::ATTR_TIMEOUT => 5, // 5 second timeout
                 ];
             }
+            
+            // Add timeout for all connections
+            if (!isset($connectionConfig['options'])) {
+                $connectionConfig['options'] = [];
+            }
+            $connectionConfig['options'][PDO::ATTR_TIMEOUT] = 5;
 
             if ($driver === 'mysql' || $driver === 'mariadb') {
                 $connectionConfig['collation'] = $config['collation'] ?? 'utf8mb4_unicode_ci';
@@ -55,12 +62,21 @@ class DatabaseConfigurationService
             $tempConnectionName = 'test_' . Str::random(10);
             config(["database.connections.{$tempConnectionName}" => $connectionConfig]);
 
-            // Test connection
-            DB::connection($tempConnectionName)->getPdo();
+            // Test connection with timeout
+            // Set a timeout for the connection attempt
+            $originalTimeout = ini_get('default_socket_timeout');
+            ini_set('default_socket_timeout', 5);
             
-            // Get database info (driver-specific)
-            $databaseName = $this->getDatabaseName($tempConnectionName, $driver, $config['database'] ?? '');
-            $version = $this->getDatabaseVersion($tempConnectionName, $driver);
+            try {
+                DB::connection($tempConnectionName)->getPdo();
+                
+                // Get database info (driver-specific) with timeout protection
+                $databaseName = $this->getDatabaseName($tempConnectionName, $driver, $config['database'] ?? '');
+                $version = $this->getDatabaseVersion($tempConnectionName, $driver);
+            } finally {
+                // Restore original timeout
+                ini_set('default_socket_timeout', $originalTimeout);
+            }
 
             // Clean up
             DB::purge($tempConnectionName);
@@ -86,14 +102,21 @@ class DatabaseConfigurationService
     protected function getDatabaseName(string $connection, string $driver, string $fallback): string
     {
         try {
-            return match ($driver) {
-                'mysql', 'mariadb' => DB::connection($connection)->select("SELECT DATABASE() as db")[0]->db ?? $fallback,
-                'pgsql' => DB::connection($connection)->select("SELECT current_database() as db")[0]->db ?? $fallback,
-                'sqlite' => $fallback ?: 'database.sqlite',
-                default => $fallback,
+            $result = match ($driver) {
+                'mysql', 'mariadb' => DB::connection($connection)->select("SELECT DATABASE() as db"),
+                'pgsql' => DB::connection($connection)->select("SELECT current_database() as db"),
+                'sqlite' => null, // SQLite doesn't need a query
+                default => null,
             };
+            
+            if ($result && isset($result[0]) && isset($result[0]->db)) {
+                return $result[0]->db;
+            }
+            
+            return $fallback ?: ($driver === 'sqlite' ? 'database.sqlite' : '');
         } catch (Exception $e) {
-            return $fallback;
+            // Return fallback on any error
+            return $fallback ?: ($driver === 'sqlite' ? 'database.sqlite' : '');
         }
     }
 

@@ -35,7 +35,9 @@ class EditCorsSetting extends EditRecord
 
     protected function afterSave(): void
     {
-        // Clear config cache so changes take effect
+        // Clear CORS config cache so changes take effect immediately
+        cache()->forget('cors_config');
+        // Clear config cache as well
         Artisan::call('config:clear');
     }
 

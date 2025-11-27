@@ -8,6 +8,7 @@ use App\Services\AuditLogService;
 use App\Services\DatabaseConfigurationService;
 use Filament\Actions;
 use Filament\Forms;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas;
 use Filament\Schemas\Schema;
@@ -284,16 +285,18 @@ class DatabaseConfigurationResource extends Resource
                             $auditService->logConnectionTest($record->name, $result['success'], $result['message'] ?? null);
 
                             if ($result['success']) {
-                                \Filament\Notifications\Notification::make()
+                                Notification::make()
                                     ->title('Connection Successful')
                                     ->success()
                                     ->body("Connected to database: {$result['database']}" . ($result['version'] ? " (Version: {$result['version']})" : ''))
+                                    ->duration(5000)
                                     ->send();
                             } else {
-                                \Filament\Notifications\Notification::make()
+                                Notification::make()
                                     ->title('Connection Failed')
                                     ->danger()
-                                    ->body($result['message'])
+                                    ->body($result['message'] ?? 'Unknown error occurred')
+                                    ->duration(5000)
                                     ->send();
                             }
                         }),

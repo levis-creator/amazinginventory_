@@ -50,19 +50,11 @@ else
     fi
 fi
 
-# Run system database migrations first (needed for seeding)
-echo "🗄️  Running system database migrations..."
-php artisan migrate --database=system --path=database/migrations/system --force --no-interaction || echo "⚠️  System migration failed or already up to date"
-
-# Run application database migrations
-echo "🗄️  Running application database migrations..."
-php artisan migrate --force --no-interaction || echo "⚠️  Migration failed or already up to date"
-
-# Seed databases (creates system settings, system admin, app users, roles, and permissions)
+# Run migrations and seed for all databases
+# The migrate:all command handles both system and application database migrations
 # The seeder uses firstOrCreate, so it's safe to run multiple times
-# This seeds both system database and application database
 if [ "${SEED_DATABASE:-true}" = "true" ]; then
-    echo "🌱 Seeding system database and application database..."
+    echo "🗄️  Running migrations and seeding for all databases..."
     
     # Check if FILAMENT_ADMIN_EMAIL is set
     if [ -z "$FILAMENT_ADMIN_EMAIL" ]; then
@@ -72,8 +64,8 @@ if [ "${SEED_DATABASE:-true}" = "true" ]; then
         echo "✅ FILAMENT_ADMIN_EMAIL is set to: $FILAMENT_ADMIN_EMAIL"
     fi
     
-    # Run the seeder
-    php artisan db:seed --force --no-interaction || echo "⚠️  Seeding failed or already completed"
+    # Run migrations and seeding for all databases using the custom migrate:all command
+    php artisan migrate:all --seed --force || echo "⚠️  Migration or seeding failed or already up to date"
     
     # Clear permission cache to ensure roles are fresh (critical for shared DB)
     echo "🔄 Clearing permission cache (important for shared database)..."
@@ -137,6 +129,8 @@ if [ "${SEED_DATABASE:-true}" = "true" ]; then
         }
     " || echo "⚠️  Could not verify admin user (tinker failed)"
 else
+    echo "🗄️  Running migrations for all databases (seeding skipped)..."
+    php artisan migrate:all --force || echo "⚠️  Migration failed or already up to date"
     echo "⏭️  Database seeding skipped (SEED_DATABASE=false)"
 fi
 

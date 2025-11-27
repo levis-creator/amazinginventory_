@@ -115,6 +115,8 @@ return [
                 // This prevents "prepared statement does not exist" errors
                 PDO::ATTR_EMULATE_PREPARES => env('DB_EMULATE_PREPARES', true),
                 PDO::ATTR_PERSISTENT => false,
+                // Add connection timeout to prevent hanging on DNS failures
+                PDO::ATTR_TIMEOUT => env('DB_CONNECTION_TIMEOUT', 5),
             ]) : [],
         ],
 

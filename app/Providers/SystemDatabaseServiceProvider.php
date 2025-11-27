@@ -82,6 +82,25 @@ class SystemDatabaseServiceProvider extends ServiceProvider
         $loading = true;
 
         try {
+            // In local environment, respect .env DB_CONNECTION=sqlite to allow local development
+            // without requiring external database connections
+            if (app()->environment('local') && env('DB_CONNECTION') === 'sqlite') {
+                // Check if there's an explicit flag to disable portal config override
+                if (env('DISABLE_PORTAL_DB_CONFIG', false)) {
+                    $loading = false;
+                    return;
+                }
+                // Only skip if we're explicitly using SQLite for local dev
+                // This allows local development without Supabase connection
+                $envDbConnection = env('DB_CONNECTION');
+                if ($envDbConnection === 'sqlite' && !env('DATABASE_URL')) {
+                    // Don't override .env SQLite configuration in local development
+                    // unless explicitly enabled via portal
+                    $loading = false;
+                    return;
+                }
+            }
+
             // Ensure Eloquent resolver is set before using models
             if (\Illuminate\Database\Eloquent\Model::getConnectionResolver() === null) {
                 if (app()->bound('db')) {

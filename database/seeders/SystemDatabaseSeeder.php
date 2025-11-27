@@ -159,23 +159,21 @@ class SystemDatabaseSeeder extends Seeder
     }
 
     /**
-     * Seed main database configuration from .env.
+     * Seed main database configuration from .env or use defaults.
      */
     protected function seedMainDatabaseConfiguration(): void
     {
-        $driver = env('DB_CONNECTION', 'sqlite');
-        
-        // Skip if using SQLite default (no configuration needed)
-        if ($driver === 'sqlite' && !env('DB_DATABASE')) {
-            return;
-        }
-
         $name = 'default';
+        
+        // Get driver from .env or use default
+        $driver = env('DB_CONNECTION', config('database.default', 'sqlite'));
+        
+        // Get values from .env or use defaults from config
         $host = env('DB_HOST');
         $port = env('DB_PORT');
         $database = env('DB_DATABASE');
         $username = env('DB_USERNAME');
-        $password = env('DB_PASSWORD'); // Get password from .env
+        $password = env('DB_PASSWORD');
         $charset = env('DB_CHARSET');
         $collation = env('DB_COLLATION');
         $sslmode = env('DB_SSLMODE');
@@ -199,17 +197,72 @@ class SystemDatabaseSeeder extends Seeder
             }
         }
 
-        // Set defaults based on driver
+        // Apply defaults based on driver if not set in .env
+        $defaultConfig = config("database.connections.{$driver}", []);
+        
+        // Set defaults for SQLite
+        if ($driver === 'sqlite') {
+            if (!$database) {
+                $database = $defaultConfig['database'] ?? database_path('database.sqlite');
+            }
+            // SQLite doesn't need host, port, username, password
+            $host = null;
+            $port = null;
+            $username = null;
+            $password = null;
+        } else {
+            // Set defaults for other drivers
+            if (!$host) {
+                $host = $defaultConfig['host'] ?? match($driver) {
+                    'mysql', 'mariadb' => '127.0.0.1',
+                    'pgsql' => '127.0.0.1',
+                    'sqlsrv' => 'localhost',
+                    default => '127.0.0.1',
+                };
+            }
+            
+            if (!$port) {
+                $port = $defaultConfig['port'] ?? match($driver) {
+                    'mysql', 'mariadb' => '3306',
+                    'pgsql' => '5432',
+                    'sqlsrv' => '1433',
+                    default => null,
+                };
+            }
+            
+            if (!$database) {
+                $database = $defaultConfig['database'] ?? 'laravel';
+            }
+            
+            if (!$username) {
+                $username = $defaultConfig['username'] ?? match($driver) {
+                    'mysql', 'mariadb' => 'root',
+                    'pgsql' => 'postgres',
+                    'sqlsrv' => 'sa',
+                    default => null,
+                };
+            }
+        }
+
+        // Set charset defaults
         if (!$charset) {
-            $charset = in_array($driver, ['pgsql']) ? 'utf8' : 'utf8mb4';
+            $charset = $defaultConfig['charset'] ?? match($driver) {
+                'pgsql' => 'utf8',
+                default => 'utf8mb4',
+            };
         }
 
-        if (!$collation && in_array($driver, ['mysql', 'mariadb'])) {
-            $collation = 'utf8mb4_unicode_ci';
+        // Set collation defaults
+        if (!$collation) {
+            $collation = $defaultConfig['collation'] ?? match($driver) {
+                'mysql', 'mariadb' => 'utf8mb4_unicode_ci',
+                default => null,
+            };
         }
 
+        // Set SSL mode defaults for PostgreSQL
         if (!$sslmode && $driver === 'pgsql') {
-            $sslmode = 'prefer';
+            $sslmode = $defaultConfig['sslmode'] ?? 'prefer';
         }
 
         // Use DB facade to avoid model resolver issues
@@ -222,13 +275,19 @@ class SystemDatabaseSeeder extends Seeder
         // Note: env() returns null if not set, or the actual value (including empty string) if set
         // We need to check if password was explicitly provided in .env
         $encryptedPassword = null;
-        if ($password !== null) {
-            // Password was set in .env (even if empty string)
-            // Encrypt it only if it's not empty, otherwise store as null
-            if ($password !== '') {
-                $encryptedPassword = \Illuminate\Support\Facades\Crypt::encryptString($password);
-            }
+        if ($password !== null && $password !== '') {
+            $encryptedPassword = \Illuminate\Support\Facades\Crypt::encryptString($password);
         }
+
+        // Determine if values came from .env or defaults
+        $hasEnvValues = env('DB_CONNECTION') !== null || 
+                       env('DB_HOST') !== null || 
+                       env('DB_DATABASE') !== null ||
+                       env('DB_USERNAME') !== null;
+        
+        $notes = $hasEnvValues 
+            ? 'Seeded from .env file (with defaults for missing values)'
+            : 'Seeded with default values (no .env configuration found)';
 
         $configData = [
             'name' => $name,
@@ -243,7 +302,7 @@ class SystemDatabaseSeeder extends Seeder
             'sslmode' => $sslmode,
             'is_default' => true,
             'is_active' => true,
-            'notes' => 'Seeded from .env file',
+            'notes' => $notes,
             'updated_at' => now(),
         ];
 
@@ -264,38 +323,91 @@ class SystemDatabaseSeeder extends Seeder
     }
 
     /**
-     * Seed system database configuration if different from main.
+     * Seed system database configuration from .env or use defaults.
      */
     protected function seedSystemDatabaseConfiguration(): void
     {
+        $name = 'system';
+        
+        // Get driver from .env or use default (sqlite)
         $systemDriver = env('SYSTEM_DB_CONNECTION', 'sqlite');
         
-        // Skip if using SQLite default
-        if ($systemDriver === 'sqlite' && !env('SYSTEM_DB_DATABASE')) {
-            return;
-        }
-
-        $name = 'system';
+        // Get values from .env or use defaults
         $host = env('SYSTEM_DB_HOST');
         $port = env('SYSTEM_DB_PORT');
         $database = env('SYSTEM_DB_DATABASE');
         $username = env('SYSTEM_DB_USERNAME');
-        $password = env('SYSTEM_DB_PASSWORD'); // Get password from .env
+        $password = env('SYSTEM_DB_PASSWORD');
         $charset = env('SYSTEM_DB_CHARSET');
         $collation = env('SYSTEM_DB_COLLATION');
         $sslmode = env('SYSTEM_DB_SSLMODE');
 
-        // Set defaults
+        // Apply defaults based on driver if not set in .env
+        $defaultConfig = config("database.connections.{$systemDriver}", []);
+        
+        // Set defaults for SQLite
+        if ($systemDriver === 'sqlite') {
+            if (!$database) {
+                $database = $defaultConfig['database'] ?? database_path('system.sqlite');
+            }
+            // SQLite doesn't need host, port, username, password
+            $host = null;
+            $port = null;
+            $username = null;
+            $password = null;
+        } else {
+            // Set defaults for other drivers
+            if (!$host) {
+                $host = $defaultConfig['host'] ?? match($systemDriver) {
+                    'mysql', 'mariadb' => '127.0.0.1',
+                    'pgsql' => '127.0.0.1',
+                    'sqlsrv' => 'localhost',
+                    default => '127.0.0.1',
+                };
+            }
+            
+            if (!$port) {
+                $port = $defaultConfig['port'] ?? match($systemDriver) {
+                    'mysql', 'mariadb' => '3306',
+                    'pgsql' => '5432',
+                    'sqlsrv' => '1433',
+                    default => null,
+                };
+            }
+            
+            if (!$database) {
+                $database = $defaultConfig['database'] ?? 'system';
+            }
+            
+            if (!$username) {
+                $username = $defaultConfig['username'] ?? match($systemDriver) {
+                    'mysql', 'mariadb' => 'root',
+                    'pgsql' => 'postgres',
+                    'sqlsrv' => 'sa',
+                    default => null,
+                };
+            }
+        }
+
+        // Set charset defaults
         if (!$charset) {
-            $charset = in_array($systemDriver, ['pgsql']) ? 'utf8' : 'utf8mb4';
+            $charset = $defaultConfig['charset'] ?? match($systemDriver) {
+                'pgsql' => 'utf8',
+                default => 'utf8mb4',
+            };
         }
 
-        if (!$collation && in_array($systemDriver, ['mysql', 'mariadb'])) {
-            $collation = 'utf8mb4_unicode_ci';
+        // Set collation defaults
+        if (!$collation) {
+            $collation = $defaultConfig['collation'] ?? match($systemDriver) {
+                'mysql', 'mariadb' => 'utf8mb4_unicode_ci',
+                default => null,
+            };
         }
 
+        // Set SSL mode defaults for PostgreSQL
         if (!$sslmode && $systemDriver === 'pgsql') {
-            $sslmode = 'prefer';
+            $sslmode = $defaultConfig['sslmode'] ?? 'prefer';
         }
 
         // Use DB facade to avoid model resolver issues
@@ -305,16 +417,20 @@ class SystemDatabaseSeeder extends Seeder
             ->exists();
 
         // Encrypt password if provided
-        // Note: env() returns null if not set, or the actual value (including empty string) if set
-        // We need to check if password was explicitly provided in .env
         $encryptedPassword = null;
-        if ($password !== null) {
-            // Password was set in .env (even if empty string)
-            // Encrypt it only if it's not empty, otherwise store as null
-            if ($password !== '') {
-                $encryptedPassword = \Illuminate\Support\Facades\Crypt::encryptString($password);
-            }
+        if ($password !== null && $password !== '') {
+            $encryptedPassword = \Illuminate\Support\Facades\Crypt::encryptString($password);
         }
+
+        // Determine if values came from .env or defaults
+        $hasEnvValues = env('SYSTEM_DB_CONNECTION') !== null || 
+                       env('SYSTEM_DB_HOST') !== null || 
+                       env('SYSTEM_DB_DATABASE') !== null ||
+                       env('SYSTEM_DB_USERNAME') !== null;
+        
+        $notes = $hasEnvValues 
+            ? 'System database configuration from .env (with defaults for missing values)'
+            : 'System database configuration with default values (no .env configuration found)';
 
         $configData = [
             'name' => $name,
@@ -329,7 +445,7 @@ class SystemDatabaseSeeder extends Seeder
             'sslmode' => $sslmode,
             'is_default' => false,
             'is_active' => true,
-            'notes' => 'System database configuration from .env',
+            'notes' => $notes,
             'updated_at' => now(),
         ];
 

@@ -40,7 +40,24 @@ class DatabaseConfigurationResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        return static::getModel()::count();
+        try {
+            // Cache the count to prevent repeated queries
+            return cache()->remember(
+                'database_configurations_count',
+                60, // Cache for 1 minute
+                function () {
+                    try {
+                        // Use the system connection explicitly
+                        return static::getModel()::on('system')->count();
+                    } catch (\Exception $e) {
+                        return null;
+                    }
+                }
+            );
+        } catch (\Exception $e) {
+            // Handle any exceptions gracefully to prevent page timeouts
+            return null;
+        }
     }
 
     public static function form(Schema $schema): Schema
@@ -250,86 +267,95 @@ class DatabaseConfigurationResource extends Resource
                     ->label('Active'),
             ])
             ->actions([
-                Actions\Action::make('test_connection')
-                    ->label('Test Connection')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->requiresConfirmation()
-                    ->modalHeading('Test Database Connection')
-                    ->modalDescription('This will test the connection without saving changes.')
-                    ->action(function (DatabaseConfiguration $record) {
-                        $service = app(DatabaseConfigurationService::class);
-                        $config = $record->toConnectionArray();
-                        $result = $service->testConnection($config);
+                Actions\ActionGroup::make([
+                    Actions\Action::make('test_connection')
+                        ->label('Test Connection')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->modalHeading('Test Database Connection')
+                        ->modalDescription('This will test the connection without saving changes.')
+                        ->action(function (DatabaseConfiguration $record) {
+                            $service = app(DatabaseConfigurationService::class);
+                            $config = $record->toConnectionArray();
+                            $result = $service->testConnection($config);
 
-                        $auditService = app(AuditLogService::class);
-                        $auditService->logConnectionTest($record->name, $result['success'], $result['message'] ?? null);
+                            $auditService = app(AuditLogService::class);
+                            $auditService->logConnectionTest($record->name, $result['success'], $result['message'] ?? null);
 
-                        if ($result['success']) {
+                            if ($result['success']) {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Connection Successful')
+                                    ->success()
+                                    ->body("Connected to database: {$result['database']}" . ($result['version'] ? " (Version: {$result['version']})" : ''))
+                                    ->send();
+                            } else {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Connection Failed')
+                                    ->danger()
+                                    ->body($result['message'])
+                                    ->send();
+                            }
+                        }),
+
+                    Actions\Action::make('set_default')
+                        ->label('Set as Default')
+                        ->icon('heroicon-o-star')
+                        ->color('warning')
+                        ->visible(fn ($record) => !$record->is_default)
+                        ->requiresConfirmation()
+                        ->modalHeading('Set as Default Connection')
+                        ->modalDescription('This will set this connection as the default database connection. The current default will be unset.')
+                        ->action(function (DatabaseConfiguration $record) {
+                            $service = app(DatabaseConfigurationService::class);
+                            $service->setDefaultConnection($record);
+
+                            $auditService = app(AuditLogService::class);
+                            $auditService->log('set_default', $record, null, ['is_default' => true], "Set connection '{$record->name}' as default");
+
                             \Filament\Notifications\Notification::make()
-                                ->title('Connection Successful')
+                                ->title('Default Connection Updated')
                                 ->success()
-                                ->body("Connected to database: {$result['database']}" . ($result['version'] ? " (Version: {$result['version']})" : ''))
+                                ->body("Connection '{$record->name}' is now the default connection.")
                                 ->send();
-                        } else {
-                            \Filament\Notifications\Notification::make()
-                                ->title('Connection Failed')
-                                ->danger()
-                                ->body($result['message'])
-                                ->send();
-                        }
-                    }),
+                        }),
 
-                Actions\Action::make('set_default')
-                    ->label('Set as Default')
-                    ->icon('heroicon-o-star')
-                    ->color('warning')
-                    ->visible(fn ($record) => !$record->is_default)
-                    ->requiresConfirmation()
-                    ->modalHeading('Set as Default Connection')
-                    ->modalDescription('This will set this connection as the default database connection. The current default will be unset.')
-                    ->action(function (DatabaseConfiguration $record) {
-                        $service = app(DatabaseConfigurationService::class);
-                        $service->setDefaultConnection($record);
+                    Actions\Action::make('sync_env')
+                        ->label('Sync to .env')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('info')
+                        ->requiresConfirmation()
+                        ->modalHeading('Sync to .env File')
+                        ->modalDescription('This will update the .env file with this connection\'s settings. A backup will be created.')
+                        ->action(function (DatabaseConfiguration $record) {
+                            $service = app(DatabaseConfigurationService::class);
+                            $result = $service->syncToEnv($record);
 
-                        $auditService = app(AuditLogService::class);
-                        $auditService->log('set_default', $record, null, ['is_default' => true], "Set connection '{$record->name}' as default");
+                            if ($result['success']) {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('.env File Updated')
+                                    ->success()
+                                    ->body("Configuration synced to .env file. Backup created at: {$result['backup']}")
+                                    ->send();
+                            } else {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Sync Failed')
+                                    ->warning()
+                                    ->body($result['message'] . ($result['export'] ?? '' ? "\n\nExport format:\n" . $result['export'] : ''))
+                                    ->send();
+                            }
+                        }),
 
-                        \Filament\Notifications\Notification::make()
-                            ->title('Default Connection Updated')
-                            ->success()
-                            ->body("Connection '{$record->name}' is now the default connection.")
-                            ->send();
-                    }),
-
-                Actions\Action::make('sync_env')
-                    ->label('Sync to .env')
-                    ->icon('heroicon-o-arrow-path')
-                    ->color('info')
-                    ->requiresConfirmation()
-                    ->modalHeading('Sync to .env File')
-                    ->modalDescription('This will update the .env file with this connection\'s settings. A backup will be created.')
-                    ->action(function (DatabaseConfiguration $record) {
-                        $service = app(DatabaseConfigurationService::class);
-                        $result = $service->syncToEnv($record);
-
-                        if ($result['success']) {
-                            \Filament\Notifications\Notification::make()
-                                ->title('.env File Updated')
-                                ->success()
-                                ->body("Configuration synced to .env file. Backup created at: {$result['backup']}")
-                                ->send();
-                        } else {
-                            \Filament\Notifications\Notification::make()
-                                ->title('Sync Failed')
-                                ->warning()
-                                ->body($result['message'] . ($result['export'] ?? '' ? "\n\nExport format:\n" . $result['export'] : ''))
-                                ->send();
-                        }
-                    }),
-
-                Actions\EditAction::make(),
-                Actions\DeleteAction::make(),
+                    Actions\EditAction::make(),
+                    Actions\DeleteAction::make()
+                        ->requiresConfirmation()
+                        ->modalHeading('Delete Database Configuration')
+                        ->modalDescription('Are you sure you want to delete this database configuration? This action cannot be undone.')
+                        ->modalSubmitActionLabel('Yes, delete'),
+                ])
+                    ->icon('heroicon-o-ellipsis-vertical')
+                    ->label('Actions')
+                    ->color('gray'),
             ])
             ->bulkActions([
                 Actions\BulkActionGroup::make([

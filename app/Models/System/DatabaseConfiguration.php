@@ -5,6 +5,7 @@ namespace App\Models\System;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Crypt;
+use PDO;
 
 class DatabaseConfiguration extends Model
 {

@@ -74,16 +74,45 @@ class SystemDatabaseServiceProvider extends ServiceProvider
      */
     public function loadDatabaseConfigurations(): void
     {
+        // Prevent infinite loops - check if we're already loading
+        static $loading = false;
+        if ($loading) {
+            return;
+        }
+        $loading = true;
+
         try {
+            // Ensure Eloquent resolver is set before using models
+            if (\Illuminate\Database\Eloquent\Model::getConnectionResolver() === null) {
+                if (app()->bound('db')) {
+                    \Illuminate\Database\Eloquent\Model::setConnectionResolver(app('db'));
+                } else {
+                    // Database service provider not booted yet, skip
+                    $loading = false;
+                    return;
+                }
+            }
+
             // Check if system database tables exist
             if (!Schema::connection('system')->hasTable('database_configurations')) {
+                $loading = false;
                 return;
             }
 
             // Load configurations from cache or database
             // Use shorter cache time (5 minutes) to allow quick updates from portal
+            // Add timeout protection to prevent infinite loops
             $configurations = cache()->remember('database_configurations', 300, function () {
-                return DatabaseConfiguration::active()->get();
+                try {
+                    // Use system connection explicitly and set a timeout
+                    return DatabaseConfiguration::on('system')
+                        ->where('is_active', true)
+                        ->get();
+                } catch (\Exception $e) {
+                    // If loading fails, return empty collection to prevent errors
+                    \Log::warning('Failed to load database configurations: ' . $e->getMessage());
+                    return collect([]);
+                }
             });
 
             $defaultConfig = null;
@@ -120,6 +149,9 @@ class SystemDatabaseServiceProvider extends ServiceProvider
         } catch (Exception $e) {
             // Log error but don't break application
             \Log::warning('Failed to load database configurations: ' . $e->getMessage());
+        } finally {
+            // Always reset loading flag
+            $loading = false;
         }
     }
 }

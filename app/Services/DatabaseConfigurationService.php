@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Exception;
+use PDO;
 
 class DatabaseConfigurationService
 {
@@ -57,8 +58,8 @@ class DatabaseConfigurationService
             // Test connection
             DB::connection($tempConnectionName)->getPdo();
             
-            // Get database info
-            $databaseName = DB::connection($tempConnectionName)->select("SELECT DATABASE() as db")[0]->db ?? $config['database'];
+            // Get database info (driver-specific)
+            $databaseName = $this->getDatabaseName($tempConnectionName, $driver, $config['database'] ?? '');
             $version = $this->getDatabaseVersion($tempConnectionName, $driver);
 
             // Clean up
@@ -76,6 +77,23 @@ class DatabaseConfigurationService
                 'message' => $e->getMessage(),
                 'error' => get_class($e),
             ];
+        }
+    }
+
+    /**
+     * Get database name (driver-specific)
+     */
+    protected function getDatabaseName(string $connection, string $driver, string $fallback): string
+    {
+        try {
+            return match ($driver) {
+                'mysql', 'mariadb' => DB::connection($connection)->select("SELECT DATABASE() as db")[0]->db ?? $fallback,
+                'pgsql' => DB::connection($connection)->select("SELECT current_database() as db")[0]->db ?? $fallback,
+                'sqlite' => $fallback ?: 'database.sqlite',
+                default => $fallback,
+            };
+        } catch (Exception $e) {
+            return $fallback;
         }
     }
 
@@ -129,7 +147,7 @@ class DatabaseConfigurationService
 
             // Update database configuration variables
             $updates = [
-                'DB_CONNECTION' => $config->driver,
+                'DB_CONNECTION' => $config->driver ?? '',
                 'DB_HOST' => $config->host ?? '',
                 'DB_PORT' => $config->port ?? '',
                 'DB_DATABASE' => $config->database ?? '',
@@ -139,7 +157,8 @@ class DatabaseConfigurationService
 
             // Add SSL mode for PostgreSQL
             if ($config->driver === 'pgsql') {
-                $updates['DB_SSLMODE'] = $config->sslmode ?? 'prefer';
+                $sslmode = $config->sslmode ?? 'prefer';
+                $updates['DB_SSLMODE'] = $sslmode;
             }
 
             // Update each variable
@@ -187,7 +206,8 @@ class DatabaseConfigurationService
         ];
 
         if ($config->driver === 'pgsql') {
-            $lines[] = "DB_SSLMODE={$config->sslmode ?? 'prefer'}";
+            $sslmode = $config->sslmode ?? 'prefer';
+            $lines[] = "DB_SSLMODE={$sslmode}";
         }
 
         return implode("\n", $lines);

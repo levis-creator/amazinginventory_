@@ -70,7 +70,7 @@ class User extends Authenticatable implements FilamentUser
      * Determine if the user can access the Filament admin panel.
      * 
      * This method is required in production environments.
-     * It checks if the user has the 'admin' role, which aligns with
+     * It checks if the user has the 'admin' or 'super_admin' role, which aligns with
      * the EnsureUserIsAdmin middleware requirement.
      *
      * @param Panel $panel
@@ -78,8 +78,8 @@ class User extends Authenticatable implements FilamentUser
      */
     public function canAccessPanel(Panel $panel): bool
     {
-        // Check if user has the 'admin' role
+        // Check if user has the 'admin' or 'super_admin' role
         // This aligns with the EnsureUserIsAdmin middleware requirement
-        return $this->hasRole('admin');
+        return $this->hasRole('admin') || $this->hasRole('super_admin');
     }
 }

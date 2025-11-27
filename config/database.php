@@ -16,6 +16,20 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Default Database Connection Name
+    |--------------------------------------------------------------------------
+    |
+    | Here you may specify which of the database connections below you wish
+    | to use as your default connection for database operations. This is
+    | the connection which will be utilized unless another connection
+    | is explicitly specified when you execute a query / statement.
+    |
+    | Default: sqlite (if not set in .env)
+    |
+    */
+
     'default' => env('DB_CONNECTION', 'sqlite'),
 
     /*
@@ -140,32 +154,45 @@ return [
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
-        'system' => [
-            'driver' => env('SYSTEM_DB_CONNECTION', 'sqlite'),
-            'url' => env('SYSTEM_DB_URL'),
-            'database' => env('SYSTEM_DB_DATABASE', database_path('system.sqlite')),
-            'host' => env('SYSTEM_DB_HOST', '127.0.0.1'),
-            'port' => env('SYSTEM_DB_PORT', '3306'),
-            'username' => env('SYSTEM_DB_USERNAME', 'root'),
-            'password' => env('SYSTEM_DB_PASSWORD', ''),
-            'charset' => env('SYSTEM_DB_CHARSET', 'utf8mb4'),
-            'collation' => env('SYSTEM_DB_COLLATION', 'utf8mb4_unicode_ci'),
-            'prefix' => '',
-            'prefix_indexes' => true,
-            'foreign_key_constraints' => env('SYSTEM_DB_FOREIGN_KEYS', true),
-            // SQLite specific
-            'busy_timeout' => null,
-            'journal_mode' => null,
-            'synchronous' => null,
-            'transaction_mode' => 'DEFERRED',
-            // PostgreSQL specific
-            'search_path' => 'public',
-            'sslmode' => env('SYSTEM_DB_SSLMODE', 'prefer'),
-            'options' => extension_loaded('pdo_pgsql') ? array_filter([
-                PDO::ATTR_EMULATE_PREPARES => env('SYSTEM_DB_EMULATE_PREPARES', false),
-                PDO::ATTR_PERSISTENT => false,
-            ]) : [],
-        ],
+        'system' => (function () {
+            $driver = env('SYSTEM_DB_CONNECTION', 'sqlite');
+            $config = [
+                'driver' => $driver,
+                'url' => env('SYSTEM_DB_URL'),
+                'database' => env('SYSTEM_DB_DATABASE', database_path('system.sqlite')),
+                'prefix' => '',
+                'prefix_indexes' => true,
+                'foreign_key_constraints' => env('SYSTEM_DB_FOREIGN_KEYS', true),
+            ];
+
+            if ($driver === 'sqlite') {
+                // SQLite specific configuration
+                $config['busy_timeout'] = null;
+                $config['journal_mode'] = null;
+                $config['synchronous'] = null;
+                $config['transaction_mode'] = 'DEFERRED';
+            } else {
+                // PostgreSQL/MySQL specific configuration
+                $config['host'] = env('SYSTEM_DB_HOST', '127.0.0.1');
+                $config['port'] = env('SYSTEM_DB_PORT', $driver === 'pgsql' ? '5432' : '3306');
+                $config['username'] = env('SYSTEM_DB_USERNAME');
+                $config['password'] = env('SYSTEM_DB_PASSWORD');
+                $config['charset'] = env('SYSTEM_DB_CHARSET', 'utf8mb4');
+                $config['collation'] = env('SYSTEM_DB_COLLATION', 'utf8mb4_unicode_ci');
+
+                if ($driver === 'pgsql') {
+                    // PostgreSQL specific
+                    $config['search_path'] = 'public';
+                    $config['sslmode'] = env('SYSTEM_DB_SSLMODE', 'prefer');
+                    $config['options'] = extension_loaded('pdo_pgsql') ? array_filter([
+                        PDO::ATTR_EMULATE_PREPARES => env('SYSTEM_DB_EMULATE_PREPARES', true),
+                        PDO::ATTR_PERSISTENT => false,
+                    ]) : [];
+                }
+            }
+
+            return $config;
+        })(),
 
     ],
 

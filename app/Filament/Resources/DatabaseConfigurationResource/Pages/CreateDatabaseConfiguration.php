@@ -39,8 +39,12 @@ class CreateDatabaseConfiguration extends CreateRecord
             $service->setDefaultConnection($this->record);
         }
 
-        // Clear cache
+        // Clear cache to reload configurations
         cache()->forget('database_configurations');
+        
+        // Reload configurations to override .env immediately
+        $provider = app(\App\Providers\SystemDatabaseServiceProvider::class);
+        $provider->loadDatabaseConfigurations();
     }
 }
 

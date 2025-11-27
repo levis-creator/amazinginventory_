@@ -3,10 +3,11 @@ set -e
 
 echo "🚀 Starting Laravel application..."
 
-# Get database connection type
+# Get database connection type (default to sqlite if not set)
 DB_CONNECTION=${DB_CONNECTION:-sqlite}
+SYSTEM_DB_CONNECTION=${SYSTEM_DB_CONNECTION:-sqlite}
 
-# Handle SQLite database file creation
+# Handle SQLite database file creation for application database
 if [ "$DB_CONNECTION" = "sqlite" ]; then
     echo "📁 Setting up SQLite database..."
     DB_PATH=${DB_DATABASE:-/var/www/html/database/database.sqlite}
@@ -29,6 +30,7 @@ if [ "$DB_CONNECTION" = "sqlite" ]; then
     # Ensure database directory is writable
     chmod -R 775 "$DB_DIR"
     chown -R www-data:www-data "$DB_DIR"
+    echo "✅ Application database will use SQLite: $DB_PATH"
 else
     # For other database types, wait for connection
     echo "⏳ Waiting for database connection..."

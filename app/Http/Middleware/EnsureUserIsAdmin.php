@@ -33,20 +33,20 @@ class EnsureUserIsAdmin
 
         $user = auth()->user();
 
-        // Check if user has admin role
-        if (! $user->hasRole('admin')) {
+        // Check if user has admin or super_admin role
+        if (! $user->hasRole('admin') && ! $user->hasRole('super_admin')) {
             $userRoles = $user->roles->pluck('name')->join(', ') ?: 'none';
             
             if ($request->expectsJson()) {
                 return ApiResponseDto::error(
-                    "Unauthorized access. Admin role required. Your current roles: {$userRoles}",
+                    "Unauthorized access. Admin or Super Admin role required. Your current roles: {$userRoles}",
                     ['current_roles' => $user->roles->pluck('name')->toArray()],
                     403
                 );
             }
             
             // For web requests, show a more helpful error
-            abort(403, "Access denied. You need the 'admin' role to access this page. Your current roles: {$userRoles}");
+            abort(403, "Access denied. You need the 'admin' or 'super_admin' role to access this page. Your current roles: {$userRoles}");
         }
 
         return $next($request);

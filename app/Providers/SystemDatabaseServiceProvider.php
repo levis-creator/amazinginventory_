@@ -15,7 +15,14 @@ class SystemDatabaseServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Run early to override .env settings
+        $this->app->booting(function () {
+            // Initialize system database connection
+            $this->initializeSystemDatabase();
+
+            // Load database configurations (this will override .env)
+            $this->loadDatabaseConfigurations();
+        });
     }
 
     /**
@@ -23,10 +30,8 @@ class SystemDatabaseServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Initialize system database connection
-        $this->initializeSystemDatabase();
-
-        // Load database configurations
+        // Reload configurations after all service providers are booted
+        // This ensures portal configurations always override .env
         $this->loadDatabaseConfigurations();
     }
 
@@ -64,8 +69,10 @@ class SystemDatabaseServiceProvider extends ServiceProvider
 
     /**
      * Load database configurations from system database
+     * This overrides .env file settings with portal configurations
+     * Made public so it can be called from Filament pages after updates
      */
-    protected function loadDatabaseConfigurations(): void
+    public function loadDatabaseConfigurations(): void
     {
         try {
             // Check if system database tables exist
@@ -74,22 +81,41 @@ class SystemDatabaseServiceProvider extends ServiceProvider
             }
 
             // Load configurations from cache or database
-            $configurations = cache()->remember('database_configurations', 3600, function () {
+            // Use shorter cache time (5 minutes) to allow quick updates from portal
+            $configurations = cache()->remember('database_configurations', 300, function () {
                 return DatabaseConfiguration::active()->get();
             });
+
+            $defaultConfig = null;
 
             // Apply each configuration to Laravel config
             foreach ($configurations as $config) {
                 $connectionName = $config->name;
                 $connectionConfig = $config->toConnectionArray();
 
-                // Update Laravel config
+                // Update Laravel config - this overrides .env settings
                 config(["database.connections.{$connectionName}" => $connectionConfig]);
 
-                // If this is the default, update default connection
+                // Track the default configuration
                 if ($config->is_default) {
-                    config(['database.default' => $connectionName]);
+                    $defaultConfig = $config;
                 }
+            }
+
+            // If a default configuration exists, override .env settings
+            if ($defaultConfig) {
+                $defaultConnectionName = $defaultConfig->name;
+                $defaultConnectionConfig = $defaultConfig->toConnectionArray();
+
+                // Set as the default connection (overrides DB_CONNECTION from .env)
+                config(['database.default' => $defaultConnectionName]);
+
+                // Also create/update a connection with the driver name
+                // This ensures code using the default connection works properly
+                // For example, if default is 'production' with driver 'pgsql',
+                // we also update the 'pgsql' connection to match
+                $driverName = $defaultConfig->driver;
+                config(["database.connections.{$driverName}" => $defaultConnectionConfig]);
             }
         } catch (Exception $e) {
             // Log error but don't break application
@@ -97,4 +123,3 @@ class SystemDatabaseServiceProvider extends ServiceProvider
         }
     }
 }
-

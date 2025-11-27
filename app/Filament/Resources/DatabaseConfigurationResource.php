@@ -30,7 +30,7 @@ class DatabaseConfigurationResource extends Resource
 
     public static function getNavigationIcon(): ?string
     {
-        return 'heroicon-o-database';
+        return 'heroicon-o-server';
     }
 
     public static function getNavigationGroup(): ?string
@@ -70,22 +70,22 @@ class DatabaseConfigurationResource extends Resource
                             ])
                             ->default('mysql')
                             ->live()
-                            ->afterStateUpdated(fn ($state, Forms\Set $set) => $set('host', $state === 'sqlite' ? null : '127.0.0.1'))
+                            ->afterStateUpdated(fn ($state, callable $set) => $set('host', $state === 'sqlite' ? null : '127.0.0.1'))
                             ->columnSpan(1),
 
                         Forms\Components\TextInput::make('host')
                             ->label('Host')
-                            ->required(fn (Forms\Get $get) => $get('driver') !== 'sqlite')
-                            ->visible(fn (Forms\Get $get) => $get('driver') !== 'sqlite')
+                            ->required(fn (callable $get) => $get('driver') !== 'sqlite')
+                            ->visible(fn (callable $get) => $get('driver') !== 'sqlite')
                             ->default('127.0.0.1')
                             ->columnSpan(1),
 
                         Forms\Components\TextInput::make('port')
                             ->label('Port')
-                            ->required(fn (Forms\Get $get) => $get('driver') !== 'sqlite')
-                            ->visible(fn (Forms\Get $get) => $get('driver') !== 'sqlite')
+                            ->required(fn (callable $get) => $get('driver') !== 'sqlite')
+                            ->visible(fn (callable $get) => $get('driver') !== 'sqlite')
                             ->numeric()
-                            ->default(fn (Forms\Get $get) => match($get('driver')) {
+                            ->default(fn (callable $get) => match($get('driver')) {
                                 'pgsql' => '5432',
                                 'mysql', 'mariadb' => '3306',
                                 'sqlsrv' => '1433',
@@ -94,26 +94,26 @@ class DatabaseConfigurationResource extends Resource
                             ->columnSpan(1),
 
                         Forms\Components\TextInput::make('database')
-                            ->label(fn (Forms\Get $get) => $get('driver') === 'sqlite' ? 'Database File Path' : 'Database Name')
-                            ->required(fn (Forms\Get $get) => $get('driver') !== 'sqlite')
-                            ->helperText(fn (Forms\Get $get) => $get('driver') === 'sqlite' 
+                            ->label(fn (callable $get) => $get('driver') === 'sqlite' ? 'Database File Path' : 'Database Name')
+                            ->required(fn (callable $get) => $get('driver') !== 'sqlite')
+                            ->helperText(fn (callable $get) => $get('driver') === 'sqlite' 
                                 ? 'Path to SQLite database file (e.g., /path/to/database.sqlite)' 
                                 : 'Name of the database')
-                            ->default(fn (Forms\Get $get) => $get('driver') === 'sqlite' ? database_path('database.sqlite') : null)
+                            ->default(fn (callable $get) => $get('driver') === 'sqlite' ? database_path('database.sqlite') : null)
                             ->columnSpan(1),
 
                         Forms\Components\TextInput::make('username')
                             ->label('Username')
-                            ->required(fn (Forms\Get $get) => $get('driver') !== 'sqlite')
-                            ->visible(fn (Forms\Get $get) => $get('driver') !== 'sqlite')
+                            ->required(fn (callable $get) => $get('driver') !== 'sqlite')
+                            ->visible(fn (callable $get) => $get('driver') !== 'sqlite')
                             ->columnSpan(1),
 
                         Forms\Components\TextInput::make('password')
                             ->label('Password')
                             ->password()
                             ->revealable()
-                            ->required(fn (Forms\Get $get) => $get('driver') !== 'sqlite')
-                            ->visible(fn (Forms\Get $get) => $get('driver') !== 'sqlite')
+                            ->required(fn (callable $get) => $get('driver') !== 'sqlite')
+                            ->visible(fn (callable $get) => $get('driver') !== 'sqlite')
                             ->helperText('Password will be encrypted before storage')
                             ->columnSpan(1),
                     ])
@@ -124,7 +124,7 @@ class DatabaseConfigurationResource extends Resource
                     ->components([
                         Forms\Components\TextInput::make('charset')
                             ->label('Charset')
-                            ->default(fn (Forms\Get $get) => match($get('driver')) {
+                            ->default(fn (callable $get) => match($get('driver')) {
                                 'pgsql' => 'utf8',
                                 default => 'utf8mb4',
                             })
@@ -132,13 +132,13 @@ class DatabaseConfigurationResource extends Resource
 
                         Forms\Components\TextInput::make('collation')
                             ->label('Collation')
-                            ->visible(fn (Forms\Get $get) => in_array($get('driver'), ['mysql', 'mariadb']))
+                            ->visible(fn (callable $get) => in_array($get('driver'), ['mysql', 'mariadb']))
                             ->default('utf8mb4_unicode_ci')
                             ->columnSpan(1),
 
                         Forms\Components\Select::make('sslmode')
                             ->label('SSL Mode')
-                            ->visible(fn (Forms\Get $get) => $get('driver') === 'pgsql')
+                            ->visible(fn (callable $get) => $get('driver') === 'pgsql')
                             ->options([
                                 'disable' => 'Disable',
                                 'allow' => 'Allow',
@@ -183,7 +183,7 @@ class DatabaseConfigurationResource extends Resource
                     ->searchable()
                     ->sortable()
                     ->weight('bold')
-                    ->icon('heroicon-o-database')
+                    ->icon('heroicon-o-server')
                     ->copyable(),
 
                 Tables\Columns\TextColumn::make('driver')
@@ -250,7 +250,7 @@ class DatabaseConfigurationResource extends Resource
                     ->label('Active'),
             ])
             ->actions([
-                Tables\Actions\Action::make('test_connection')
+                Actions\Action::make('test_connection')
                     ->label('Test Connection')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
@@ -280,7 +280,7 @@ class DatabaseConfigurationResource extends Resource
                         }
                     }),
 
-                Tables\Actions\Action::make('set_default')
+                Actions\Action::make('set_default')
                     ->label('Set as Default')
                     ->icon('heroicon-o-star')
                     ->color('warning')
@@ -302,7 +302,7 @@ class DatabaseConfigurationResource extends Resource
                             ->send();
                     }),
 
-                Tables\Actions\Action::make('sync_env')
+                Actions\Action::make('sync_env')
                     ->label('Sync to .env')
                     ->icon('heroicon-o-arrow-path')
                     ->color('info')
@@ -328,12 +328,12 @@ class DatabaseConfigurationResource extends Resource
                         }
                     }),
 
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Actions\EditAction::make(),
+                Actions\DeleteAction::make(),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                Actions\BulkActionGroup::make([
+                    Actions\DeleteBulkAction::make(),
                 ]),
             ])
             ->defaultSort('created_at', 'desc');

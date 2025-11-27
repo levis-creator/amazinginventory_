@@ -208,6 +208,10 @@ class DatabaseConfigurationService
 
         // Clear config cache
         cache()->forget('database_configurations');
+        
+        // Reload configurations to override .env immediately
+        $provider = app(\App\Providers\SystemDatabaseServiceProvider::class);
+        $provider->loadDatabaseConfigurations();
     }
 
     /**
@@ -228,6 +232,13 @@ class DatabaseConfigurationService
 
         // Clear connection cache
         DB::purge($connectionName);
+        
+        // Clear configuration cache to reload from system database
+        cache()->forget('database_configurations');
+        
+        // Reload configurations to override .env immediately
+        $provider = app(\App\Providers\SystemDatabaseServiceProvider::class);
+        $provider->loadDatabaseConfigurations();
     }
 }
 

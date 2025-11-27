@@ -272,7 +272,8 @@ class DatabaseConfigurationService
         cache()->forget('database_configurations');
         
         // Reload configurations to override .env immediately
-        $provider = app(\App\Providers\SystemDatabaseServiceProvider::class);
+        // Instantiate the provider with the app instance
+        $provider = new \App\Providers\SystemDatabaseServiceProvider(app());
         $provider->loadDatabaseConfigurations();
     }
 
@@ -299,7 +300,8 @@ class DatabaseConfigurationService
         cache()->forget('database_configurations');
         
         // Reload configurations to override .env immediately
-        $provider = app(\App\Providers\SystemDatabaseServiceProvider::class);
+        // Instantiate the provider with the app instance
+        $provider = new \App\Providers\SystemDatabaseServiceProvider(app());
         $provider->loadDatabaseConfigurations();
     }
 }

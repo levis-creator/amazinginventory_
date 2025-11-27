@@ -169,7 +169,7 @@ class SystemDatabaseSeeder extends Seeder
         $port = env('DB_PORT');
         $database = env('DB_DATABASE');
         $username = env('DB_USERNAME');
-        $password = env('DB_PASSWORD');
+        $password = env('DB_PASSWORD'); // Get password from .env
         $charset = env('DB_CHARSET');
         $collation = env('DB_COLLATION');
         $sslmode = env('DB_SSLMODE');
@@ -212,6 +212,18 @@ class SystemDatabaseSeeder extends Seeder
             ->where('name', $name)
             ->exists();
 
+        // Encrypt password if provided
+        // Note: env() returns null if not set, or the actual value (including empty string) if set
+        // We need to check if password was explicitly provided in .env
+        $encryptedPassword = null;
+        if ($password !== null) {
+            // Password was set in .env (even if empty string)
+            // Encrypt it only if it's not empty, otherwise store as null
+            if ($password !== '') {
+                $encryptedPassword = \Illuminate\Support\Facades\Crypt::encryptString($password);
+            }
+        }
+
         $configData = [
             'name' => $name,
             'driver' => $driver,
@@ -219,7 +231,7 @@ class SystemDatabaseSeeder extends Seeder
             'port' => $port,
             'database' => $database,
             'username' => $username,
-            'password' => $password ? \Illuminate\Support\Facades\Crypt::encryptString($password) : null,
+            'password' => $encryptedPassword,
             'charset' => $charset,
             'collation' => $collation,
             'sslmode' => $sslmode,
@@ -236,7 +248,7 @@ class SystemDatabaseSeeder extends Seeder
                 ->insert($configData);
             $this->command->line("    ✓ Created database configuration: {$name} ({$driver})");
         } else {
-            // Update existing configuration
+            // Update existing configuration - always update password if provided
             \Illuminate\Support\Facades\DB::connection('system')
                 ->table('database_configurations')
                 ->where('name', $name)
@@ -262,7 +274,7 @@ class SystemDatabaseSeeder extends Seeder
         $port = env('SYSTEM_DB_PORT');
         $database = env('SYSTEM_DB_DATABASE');
         $username = env('SYSTEM_DB_USERNAME');
-        $password = env('SYSTEM_DB_PASSWORD');
+        $password = env('SYSTEM_DB_PASSWORD'); // Get password from .env
         $charset = env('SYSTEM_DB_CHARSET');
         $collation = env('SYSTEM_DB_COLLATION');
         $sslmode = env('SYSTEM_DB_SSLMODE');
@@ -286,6 +298,18 @@ class SystemDatabaseSeeder extends Seeder
             ->where('name', $name)
             ->exists();
 
+        // Encrypt password if provided
+        // Note: env() returns null if not set, or the actual value (including empty string) if set
+        // We need to check if password was explicitly provided in .env
+        $encryptedPassword = null;
+        if ($password !== null) {
+            // Password was set in .env (even if empty string)
+            // Encrypt it only if it's not empty, otherwise store as null
+            if ($password !== '') {
+                $encryptedPassword = \Illuminate\Support\Facades\Crypt::encryptString($password);
+            }
+        }
+
         $configData = [
             'name' => $name,
             'driver' => $systemDriver,
@@ -293,7 +317,7 @@ class SystemDatabaseSeeder extends Seeder
             'port' => $port,
             'database' => $database,
             'username' => $username,
-            'password' => $password ? \Illuminate\Support\Facades\Crypt::encryptString($password) : null,
+            'password' => $encryptedPassword,
             'charset' => $charset,
             'collation' => $collation,
             'sslmode' => $sslmode,

@@ -6,6 +6,7 @@ use App\Filament\Resources\DatabaseConfigurationResource;
 use App\Services\AuditLogService;
 use App\Services\DatabaseConfigurationService;
 use Filament\Actions;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Validation\ValidationException;
 
@@ -24,24 +25,35 @@ class EditDatabaseConfiguration extends EditRecord
                 ->modalHeading('Test Database Connection')
                 ->modalDescription('This will test the connection with the current form values.')
                 ->action(function () {
-                    $data = $this->form->getState();
-                    $service = app(DatabaseConfigurationService::class);
-                    $result = $service->testConnection($data);
+                    try {
+                        $data = $this->form->getState();
+                        $service = app(DatabaseConfigurationService::class);
+                        $result = $service->testConnection($data);
 
-                    $auditService = app(AuditLogService::class);
-                    $auditService->logConnectionTest($this->record->name, $result['success'], $result['message'] ?? null);
+                        $auditService = app(AuditLogService::class);
+                        $auditService->logConnectionTest($this->record->name, $result['success'], $result['message'] ?? null);
 
-                    if ($result['success']) {
-                        \Filament\Notifications\Notification::make()
-                            ->title('Connection Successful')
-                            ->success()
-                            ->body("Connected to database: {$result['database']}" . ($result['version'] ? " (Version: {$result['version']})" : ''))
-                            ->send();
-                    } else {
-                        \Filament\Notifications\Notification::make()
-                            ->title('Connection Failed')
+                        if ($result['success']) {
+                            Notification::make()
+                                ->title('Connection Successful')
+                                ->success()
+                                ->body("Connected to database: {$result['database']}" . ($result['version'] ? " (Version: {$result['version']})" : ''))
+                                ->duration(5000)
+                                ->send();
+                        } else {
+                            Notification::make()
+                                ->title('Connection Failed')
+                                ->danger()
+                                ->body($result['message'] ?? 'Unknown error occurred')
+                                ->duration(5000)
+                                ->send();
+                        }
+                    } catch (\Exception $e) {
+                        Notification::make()
+                            ->title('Connection Test Error')
                             ->danger()
-                            ->body($result['message'])
+                            ->body('An error occurred while testing the connection: ' . $e->getMessage())
+                            ->duration(5000)
                             ->send();
                     }
                 }),

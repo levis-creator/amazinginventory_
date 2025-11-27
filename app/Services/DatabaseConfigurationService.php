@@ -71,8 +71,21 @@ class DatabaseConfigurationService
                 DB::connection($tempConnectionName)->getPdo();
                 
                 // Get database info (driver-specific) with timeout protection
-                $databaseName = $this->getDatabaseName($tempConnectionName, $driver, $config['database'] ?? '');
-                $version = $this->getDatabaseVersion($tempConnectionName, $driver);
+                // Use shorter timeout for info queries to prevent hanging
+                $infoTimeout = ini_get('default_socket_timeout');
+                ini_set('default_socket_timeout', 2); // 2 second timeout for info queries
+                
+                try {
+                    $databaseName = $this->getDatabaseName($tempConnectionName, $driver, $config['database'] ?? '');
+                    $version = $this->getDatabaseVersion($tempConnectionName, $driver);
+                } catch (\Exception $infoException) {
+                    // If info queries fail, use fallback values but still report success
+                    $databaseName = $config['database'] ?? 'Unknown';
+                    $version = null;
+                    \Log::debug('Database info query failed: ' . $infoException->getMessage());
+                } finally {
+                    ini_set('default_socket_timeout', $infoTimeout);
+                }
             } finally {
                 // Restore original timeout
                 ini_set('default_socket_timeout', $originalTimeout);
@@ -126,12 +139,18 @@ class DatabaseConfigurationService
     protected function getDatabaseVersion(string $connection, string $driver): ?string
     {
         try {
-            return match ($driver) {
-                'mysql', 'mariadb' => DB::connection($connection)->select("SELECT VERSION() as version")[0]->version ?? null,
-                'pgsql' => DB::connection($connection)->select("SELECT version()")[0]->version ?? null,
-                'sqlite' => DB::connection($connection)->select("SELECT sqlite_version() as version")[0]->version ?? null,
+            $result = match ($driver) {
+                'mysql', 'mariadb' => DB::connection($connection)->select("SELECT VERSION() as version"),
+                'pgsql' => DB::connection($connection)->select("SELECT version()"),
+                'sqlite' => DB::connection($connection)->select("SELECT sqlite_version() as version"),
                 default => null,
             };
+            
+            if ($result && isset($result[0]) && isset($result[0]->version)) {
+                return $result[0]->version;
+            }
+            
+            return null;
         } catch (Exception $e) {
             return null;
         }

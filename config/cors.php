@@ -1,27 +1,30 @@
 <?php
 
+/*
+|--------------------------------------------------------------------------
+| Cross-Origin Resource Sharing (CORS) Configuration
+|--------------------------------------------------------------------------
+|
+| Here you may configure your settings for cross-origin resource sharing
+| or "CORS". This determines what cross-origin operations may execute
+| in web browsers. You are free to adjust these settings as needed.
+|
+| IMPORTANT: CORS only applies to browser-based requests (web apps).
+| Mobile apps (Flutter iOS/Android) do NOT have CORS restrictions.
+| This configuration is mainly for:
+| - Flutter Web applications
+| - Web-based admin panels
+| - Development/testing with web browsers
+|
+| This configuration now supports database-backed settings managed through
+| the admin portal. The HandleCors middleware will check for database
+| settings first, then fall back to this configuration.
+|
+| To learn more: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
+|
+*/
+
 return [
-
-    /*
-    |--------------------------------------------------------------------------
-    | Cross-Origin Resource Sharing (CORS) Configuration
-    |--------------------------------------------------------------------------
-    |
-    | Here you may configure your settings for cross-origin resource sharing
-    | or "CORS". This determines what cross-origin operations may execute
-    | in web browsers. You are free to adjust these settings as needed.
-    |
-    | IMPORTANT: CORS only applies to browser-based requests (web apps).
-    | Mobile apps (Flutter iOS/Android) do NOT have CORS restrictions.
-    | This configuration is mainly for:
-    | - Flutter Web applications
-    | - Web-based admin panels
-    | - Development/testing with web browsers
-    |
-    | To learn more: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
-    |
-    */
-
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
 
     'allowed_methods' => ['*'],
@@ -37,6 +40,5 @@ return [
     'max_age' => 0,
 
     'supports_credentials' => true,
-
 ];
 

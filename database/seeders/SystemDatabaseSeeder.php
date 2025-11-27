@@ -2,6 +2,9 @@
 
 namespace Database\Seeders;
 
+use App\Filament\Resources\EnvironmentResource;
+use App\Models\System\Environment;
+use App\Models\System\EnvironmentVariable;
 use App\Models\System\SystemAdmin;
 use App\Models\System\SystemSetting;
 use Illuminate\Database\Seeder;
@@ -26,6 +29,9 @@ class SystemDatabaseSeeder extends Seeder
 
         // Seed database configurations from .env
         $this->seedDatabaseConfigurations();
+
+        // Seed environments and environment variables
+        $this->seedEnvironments();
 
         // Seed system admin (for emergency access)
         $this->seedSystemAdmin();
@@ -339,6 +345,200 @@ class SystemDatabaseSeeder extends Seeder
                 ->where('name', $name)
                 ->update($configData);
             $this->command->line("    ✓ Updated system database configuration: {$name} ({$systemDriver})");
+        }
+    }
+
+    /**
+     * Seed environments and environment variables from .env file
+     */
+    protected function seedEnvironments(): void
+    {
+        $this->command->info('  Creating environments and environment variables...');
+
+        // Check if environments table exists
+        if (!\Illuminate\Support\Facades\Schema::connection('system')->hasTable('environments')) {
+            $this->command->warn('    ⚠️  environments table does not exist. Run migrations first.');
+            return;
+        }
+
+        if (!\Illuminate\Support\Facades\Schema::connection('system')->hasTable('environment_variables')) {
+            $this->command->warn('    ⚠️  environment_variables table does not exist. Run migrations first.');
+            return;
+        }
+
+        // Create or get default environment
+        $defaultEnv = $this->createDefaultEnvironment();
+
+        // Read .env file and create environment variables
+        $this->seedEnvironmentVariablesFromEnv($defaultEnv);
+
+        // Sync default environment to .env file to ensure consistency
+        $this->syncEnvironmentToEnvFile($defaultEnv);
+
+        $this->command->line("    ✓ Environments and variables seeded successfully");
+    }
+
+    /**
+     * Create default environment
+     */
+    protected function createDefaultEnvironment(): Environment
+    {
+        $envName = env('APP_ENV', 'local');
+        $envSlug = \Illuminate\Support\Str::slug($envName);
+
+        // Check if environment exists
+        $environment = Environment::on('system')->where('slug', $envSlug)->first();
+
+        if (!$environment) {
+            // Check if any environment is marked as default
+            $hasDefault = Environment::on('system')->where('is_default', true)->exists();
+
+            $environment = Environment::on('system')->create([
+                'name' => ucfirst($envName),
+                'slug' => $envSlug,
+                'description' => "Default {$envName} environment seeded from .env",
+                'is_active' => true,
+                'is_default' => !$hasDefault, // Set as default if no other default exists
+                'notes' => 'Seeded from .env file',
+            ]);
+
+            $this->command->line("    ✓ Created environment: {$environment->name}");
+        } else {
+            // Update to ensure it's active
+            $environment->update([
+                'is_active' => true,
+            ]);
+            $this->command->line("    ✓ Using existing environment: {$environment->name}");
+        }
+
+        return $environment;
+    }
+
+    /**
+     * Seed environment variables from .env file
+     */
+    protected function seedEnvironmentVariablesFromEnv(Environment $environment): void
+    {
+        $envPath = base_path('.env');
+        
+        if (!file_exists($envPath)) {
+            $this->command->warn('    ⚠️  .env file does not exist. Skipping environment variable seeding.');
+            return;
+        }
+
+        // Read .env file
+        $envContent = file_get_contents($envPath);
+        $lines = explode("\n", $envContent);
+
+        $variableCount = 0;
+        $skippedCount = 0;
+
+        // Common variables to skip (they're managed elsewhere)
+        $skipKeys = [
+            'APP_KEY',
+            'DB_CONNECTION',
+            'DB_HOST',
+            'DB_PORT',
+            'DB_DATABASE',
+            'DB_USERNAME',
+            'DB_PASSWORD',
+            'SYSTEM_DB_CONNECTION',
+            'SYSTEM_DB_HOST',
+            'SYSTEM_DB_PORT',
+            'SYSTEM_DB_DATABASE',
+            'SYSTEM_DB_USERNAME',
+            'SYSTEM_DB_PASSWORD',
+        ];
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+
+            // Skip empty lines, comments, and non-variable lines
+            if (empty($line) || str_starts_with($line, '#') || !str_contains($line, '=')) {
+                continue;
+            }
+
+            // Parse key=value
+            [$key, $value] = explode('=', $line, 2);
+            $key = trim($key);
+            $value = trim($value);
+
+            // Remove quotes if present
+            if ((str_starts_with($value, '"') && str_ends_with($value, '"')) ||
+                (str_starts_with($value, "'") && str_ends_with($value, "'"))) {
+                $value = substr($value, 1, -1);
+            }
+
+            // Skip if key is in skip list
+            if (in_array($key, $skipKeys)) {
+                $skippedCount++;
+                continue;
+            }
+
+            // Determine type
+            $type = 'string';
+            if (is_numeric($value)) {
+                $type = 'integer';
+            } elseif (in_array(strtolower($value), ['true', 'false', '1', '0', 'yes', 'no', 'on', 'off'])) {
+                $type = 'boolean';
+            } elseif (str_starts_with($value, '{') || str_starts_with($value, '[')) {
+                // Try to parse as JSON
+                json_decode($value);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $type = 'json';
+                }
+            }
+
+            // Check if variable already exists
+            $exists = EnvironmentVariable::on('system')
+                ->where('environment_id', $environment->id)
+                ->where('key', $key)
+                ->exists();
+
+            if (!$exists) {
+                EnvironmentVariable::on('system')->create([
+                    'environment_id' => $environment->id,
+                    'key' => $key,
+                    'value' => $value,
+                    'type' => $type,
+                    'description' => "Seeded from .env file",
+                    'is_encrypted' => false,
+                ]);
+                $variableCount++;
+            }
+        }
+
+        $this->command->line("    ✓ Created {$variableCount} environment variables (skipped {$skippedCount} system variables)");
+    }
+
+    /**
+     * Sync environment variables to .env file
+     */
+    protected function syncEnvironmentToEnvFile(Environment $environment): void
+    {
+        $envPath = base_path('.env');
+        
+        if (!file_exists($envPath)) {
+            $this->command->warn('    ⚠️  .env file does not exist. Cannot sync environment variables.');
+            return;
+        }
+
+        if (!is_writable($envPath)) {
+            $this->command->warn('    ⚠️  .env file is not writable. Cannot sync environment variables.');
+            return;
+        }
+
+        try {
+            // Use the sync method from EnvironmentResource
+            $result = EnvironmentResource::syncEnvironmentToEnv($environment);
+
+            if ($result['success']) {
+                $this->command->line("    ✓ Synced {$result['count']} variables to .env file");
+            } else {
+                $this->command->warn("    ⚠️  Failed to sync to .env: {$result['message']}");
+            }
+        } catch (\Exception $e) {
+            $this->command->warn("    ⚠️  Failed to sync to .env: " . $e->getMessage());
         }
     }
 }

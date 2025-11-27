@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\System\DatabaseConfiguration;
+use App\Services\EnvironmentVariableService;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -23,6 +24,9 @@ class SystemDatabaseServiceProvider extends ServiceProvider
 
             // Load database configurations (this will override .env)
             $this->loadDatabaseConfigurations();
+
+            // Load environment variables (this will override .env)
+            $this->loadEnvironmentVariables();
         });
     }
 
@@ -34,6 +38,9 @@ class SystemDatabaseServiceProvider extends ServiceProvider
         // Reload configurations after all service providers are booted
         // This ensures portal configurations always override .env
         $this->loadDatabaseConfigurations();
+        
+        // Reload environment variables
+        $this->loadEnvironmentVariables();
     }
 
     /**
@@ -309,6 +316,64 @@ class SystemDatabaseServiceProvider extends ServiceProvider
         } catch (Exception $e) {
             // Log error but don't break application
             \Log::warning('Failed to load database configurations: ' . $e->getMessage());
+        } finally {
+            // Always reset loading flag and recursion depth
+            $loading = false;
+            $recursionDepth = 0;
+        }
+    }
+
+    /**
+     * Load environment variables from system database
+     * This overrides .env file settings with portal configurations
+     * Made public so it can be called from Filament pages after updates
+     */
+    public function loadEnvironmentVariables(): void
+    {
+        // Prevent infinite loops - check if we're already loading
+        static $loading = false;
+        static $recursionDepth = 0;
+        static $maxRecursionDepth = 3;
+        
+        if ($loading) {
+            if ($recursionDepth >= $maxRecursionDepth) {
+                \Log::error("Maximum recursion depth reached in loadEnvironmentVariables. Aborting to prevent infinite loop.");
+                return;
+            }
+            $recursionDepth++;
+        } else {
+            $loading = true;
+            $recursionDepth = 0;
+        }
+
+        try {
+            // Check if there's an explicit flag to disable portal env override
+            if (env('DISABLE_PORTAL_ENV_CONFIG', false)) {
+                $loading = false;
+                return;
+            }
+
+            // Check if system database tables exist
+            if (!Schema::connection('system')->hasTable('environments') ||
+                !Schema::connection('system')->hasTable('environment_variables')) {
+                $loading = false;
+                return;
+            }
+
+            // Check if we should bypass cache (when force reloading)
+            $bypassCache = app()->bound('environment_variables_force_reload') && app('environment_variables_force_reload');
+            
+            if ($bypassCache) {
+                // Force reload from database, bypassing cache
+                cache()->forget('environment_variables');
+                cache()->forget('default_environment');
+            }
+
+            // Apply variables using the service
+            EnvironmentVariableService::applyVariables();
+        } catch (\Exception $e) {
+            // Log error but don't break application
+            \Log::warning('Failed to load environment variables: ' . $e->getMessage());
         } finally {
             // Always reset loading flag and recursion depth
             $loading = false;

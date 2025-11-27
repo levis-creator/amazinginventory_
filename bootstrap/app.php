@@ -15,6 +15,15 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(prepend: [
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);
+        
+        // Add database connection fallback middleware early in the stack
+        // This ensures automatic fallback if default database connection fails
+        $middleware->web(prepend: [
+            \App\Http\Middleware\DatabaseConnectionFallback::class,
+        ]);
+        $middleware->api(prepend: [
+            \App\Http\Middleware\DatabaseConnectionFallback::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

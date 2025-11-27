@@ -89,8 +89,29 @@ class EditDatabaseConfiguration extends EditRecord
 
         // If this is set as default, apply it
         if ($this->record->is_default) {
-            $service = app(DatabaseConfigurationService::class);
-            $service->setDefaultConnection($this->record);
+            try {
+                $service = app(DatabaseConfigurationService::class);
+                $service->setDefaultConnection($this->record);
+                
+                // Notify user that default database has been switched
+                Notification::make()
+                    ->title('Default Database Updated')
+                    ->success()
+                    ->body("The application is now using '{$this->record->name}' as the default database connection.")
+                    ->duration(5000)
+                    ->send();
+            } catch (\Exception $e) {
+                Notification::make()
+                    ->title('Failed to Set Default Database')
+                    ->danger()
+                    ->body($e->getMessage())
+                    ->duration(5000)
+                    ->send();
+                
+                // Revert is_default flag if setting failed
+                $this->record->is_default = false;
+                $this->record->save();
+            }
         }
 
         // Clear cache to reload configurations

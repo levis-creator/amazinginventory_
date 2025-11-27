@@ -71,37 +71,50 @@ class DatabaseConfiguration extends Model
      */
     public function toConnectionArray(): array
     {
-        $config = [
-            'driver' => $this->driver,
-            'host' => $this->host,
-            'port' => $this->port,
-            'database' => $this->database,
-            'username' => $this->username,
-            'password' => $this->password,
-            'charset' => $this->charset ?? 'utf8mb4',
-            'prefix' => '',
-            'prefix_indexes' => true,
-        ];
-
-        // Driver-specific configurations
-        if ($this->driver === 'pgsql') {
-            $config['sslmode'] = $this->sslmode ?? 'prefer';
-            $config['search_path'] = 'public';
-            // Enable prepared statement emulation for connection poolers (Supabase, etc.)
-            $config['options'] = array_merge($config['options'] ?? [], [
-                PDO::ATTR_EMULATE_PREPARES => true,
-                PDO::ATTR_PERSISTENT => false,
-            ]);
-        }
-
-        if ($this->driver === 'mysql' || $this->driver === 'mariadb') {
-            $config['collation'] = $this->collation ?? 'utf8mb4_unicode_ci';
-            $config['strict'] = true;
-        }
-
+        // SQLite has a different structure - no host, port, username, password
         if ($this->driver === 'sqlite') {
-            $config['database'] = $this->database ?? database_path('database.sqlite');
-            $config['foreign_key_constraints'] = true;
+            $config = [
+                'driver' => 'sqlite',
+                'database' => $this->database ?? database_path('database.sqlite'),
+                'prefix' => '',
+                'prefix_indexes' => true,
+                'foreign_key_constraints' => true,
+                'busy_timeout' => null,
+                'journal_mode' => null,
+                'synchronous' => null,
+                'transaction_mode' => 'DEFERRED',
+            ];
+        } else {
+            // For other drivers (MySQL, PostgreSQL, etc.)
+            $config = [
+                'driver' => $this->driver,
+                'host' => $this->host ?? '127.0.0.1',
+                'port' => $this->port ?? ($this->driver === 'pgsql' ? '5432' : '3306'),
+                'database' => $this->database ?? '',
+                'username' => $this->username ?? '',
+                'password' => $this->password ?? '',
+                'charset' => $this->charset ?? ($this->driver === 'pgsql' ? 'utf8' : 'utf8mb4'),
+                'prefix' => '',
+                'prefix_indexes' => true,
+            ];
+
+            // Driver-specific configurations
+            if ($this->driver === 'pgsql') {
+                $config['sslmode'] = $this->sslmode ?? 'prefer';
+                $config['search_path'] = 'public';
+                // Enable prepared statement emulation for connection poolers (Supabase, etc.)
+                $config['options'] = array_merge($config['options'] ?? [], [
+                    PDO::ATTR_EMULATE_PREPARES => true,
+                    PDO::ATTR_PERSISTENT => false,
+                    // Note: For PostgreSQL, connection timeout is controlled by default_socket_timeout
+                    // PDO::ATTR_TIMEOUT doesn't work for PostgreSQL connections
+                ]);
+            }
+
+            if ($this->driver === 'mysql' || $this->driver === 'mariadb') {
+                $config['collation'] = $this->collation ?? 'utf8mb4_unicode_ci';
+                $config['strict'] = true;
+            }
         }
 
         // Merge additional options

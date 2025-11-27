@@ -39,15 +39,18 @@ class DatabaseConfigurationService
                 $connectionConfig['options'] = [
                     PDO::ATTR_EMULATE_PREPARES => true,
                     PDO::ATTR_PERSISTENT => false,
-                    PDO::ATTR_TIMEOUT => 5, // 5 second timeout
+                    // Note: PDO::ATTR_TIMEOUT doesn't work for PostgreSQL
+                    // Connection timeout is handled via default_socket_timeout ini setting
                 ];
             }
             
-            // Add timeout for all connections
-            if (!isset($connectionConfig['options'])) {
+            // Add timeout for non-PostgreSQL connections
+            if ($driver !== 'pgsql' && !isset($connectionConfig['options'])) {
                 $connectionConfig['options'] = [];
             }
-            $connectionConfig['options'][PDO::ATTR_TIMEOUT] = 5;
+            if ($driver !== 'pgsql') {
+                $connectionConfig['options'][PDO::ATTR_TIMEOUT] = 10; // 10 second timeout for MySQL/MariaDB
+            }
 
             if ($driver === 'mysql' || $driver === 'mariadb') {
                 $connectionConfig['collation'] = $config['collation'] ?? 'utf8mb4_unicode_ci';
@@ -64,8 +67,10 @@ class DatabaseConfigurationService
 
             // Test connection with timeout
             // Set a timeout for the connection attempt
+            // For Supabase/PostgreSQL, use longer timeout (10 seconds)
             $originalTimeout = ini_get('default_socket_timeout');
-            ini_set('default_socket_timeout', 5);
+            $connectionTimeout = ($driver === 'pgsql') ? 10 : 5; // 10 seconds for PostgreSQL, 5 for others
+            ini_set('default_socket_timeout', $connectionTimeout);
             
             try {
                 DB::connection($tempConnectionName)->getPdo();
@@ -101,9 +106,22 @@ class DatabaseConfigurationService
                 'version' => $version,
             ];
         } catch (Exception $e) {
+            $errorMessage = $e->getMessage();
+            
+            // Provide more helpful error messages for common issues
+            if (str_contains($errorMessage, 'timeout') || str_contains($errorMessage, 'timed out')) {
+                $errorMessage .= ' - The connection timed out. This could be due to: network issues, firewall blocking the connection, or the database server being unreachable. Please check your network connection and database server status.';
+            } elseif (str_contains($errorMessage, 'could not translate host name') || str_contains($errorMessage, 'Name or service not known')) {
+                $errorMessage .= ' - DNS resolution failed. Please check that the hostname is correct and your network can resolve it.';
+            } elseif (str_contains($errorMessage, 'password authentication failed')) {
+                $errorMessage .= ' - Authentication failed. Please verify your username and password.';
+            } elseif (str_contains($errorMessage, 'connection refused')) {
+                $errorMessage .= ' - Connection was refused. The database server may be down or the port may be incorrect.';
+            }
+            
             return [
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => $errorMessage,
                 'error' => get_class($e),
             ];
         }
@@ -260,6 +278,32 @@ class DatabaseConfigurationService
      */
     public function setDefaultConnection(DatabaseConfiguration $config): void
     {
+        // Test the connection before switching to ensure it's valid
+        // Use toConnectionArray() instead of toArray() to ensure password is included
+        $testResult = $this->testConnection($config->toConnectionArray());
+        if (!$testResult['success']) {
+            throw new \Exception('Cannot set as default: Connection test failed - ' . $testResult['message']);
+        }
+
+        // Get the current default connection name (if any) to purge it later
+        $oldDefault = DatabaseConfiguration::where('is_default', true)
+            ->where('id', '!=', $config->id)
+            ->first();
+        $oldDefaultName = $oldDefault ? $oldDefault->name : null;
+        
+        // Store the previous working default in cache for fallback
+        // This allows automatic fallback if the new connection fails
+        $currentWorkingDefault = config('database.default');
+        if ($currentWorkingDefault && $currentWorkingDefault !== $config->name) {
+            // Store previous working default for fallback
+            cache()->put('database_previous_default', [
+                'name' => $currentWorkingDefault,
+                'config' => config("database.connections.{$currentWorkingDefault}"),
+                'timestamp' => now(),
+            ], 86400); // Store for 24 hours
+            \Log::info("Stored previous working default database for fallback: {$currentWorkingDefault}");
+        }
+
         // Unset other defaults
         DatabaseConfiguration::where('id', '!=', $config->id)
             ->update(['is_default' => false]);
@@ -268,13 +312,163 @@ class DatabaseConfigurationService
         $config->is_default = true;
         $config->save();
 
-        // Clear config cache
+        // Purge old default connection if it exists
+        if ($oldDefaultName) {
+            DB::purge($oldDefaultName);
+            // Also purge by driver name if it was the default
+            if (config('database.default') === $oldDefaultName) {
+                DB::purge($oldDefault->driver);
+            }
+        }
+
+        // Force clear ALL caches to ensure fresh configuration
         cache()->forget('database_configurations');
+        
+        // Clear Laravel's config cache if it exists
+        $configCachePath = base_path('bootstrap/cache/config.php');
+        if (file_exists($configCachePath)) {
+            @unlink($configCachePath);
+        }
+        
+        // Disconnect all existing database connections
+        try {
+            // Get all registered connections
+            $connections = array_keys(config('database.connections', []));
+            foreach ($connections as $connectionName) {
+                try {
+                    DB::purge($connectionName);
+                    // Also try to disconnect if connection exists
+                    try {
+                        $conn = DB::connection($connectionName);
+                        if ($conn && method_exists($conn, 'disconnect')) {
+                            $conn->disconnect();
+                        }
+                    } catch (\Exception $e) {
+                        // Ignore disconnect errors
+                    }
+                } catch (\Exception $e) {
+                    // Ignore errors when purging/disconnecting
+                }
+            }
+        } catch (\Exception $e) {
+            \Log::debug("Error purging connections: " . $e->getMessage());
+        }
+        
+        // Set flag to force reload from database (bypass cache)
+        app()->instance('database_config_force_reload', true);
         
         // Reload configurations to override .env immediately
         // Instantiate the provider with the app instance
         $provider = new \App\Providers\SystemDatabaseServiceProvider(app());
         $provider->loadDatabaseConfigurations();
+        
+        // Clear the force reload flag
+        app()->forgetInstance('database_config_force_reload');
+
+        // Purge the new default connection to ensure fresh connection
+        $newDefaultName = $config->name;
+        DB::purge($newDefaultName);
+        DB::purge($config->driver);
+        
+        // Also purge 'default' connection name
+        DB::purge('default');
+
+        // Force reconnect to the new default database and verify it works
+        try {
+            // Clear the default connection from the manager
+            $dbManager = app('db');
+            if (method_exists($dbManager, 'purge')) {
+                $dbManager->purge('default');
+            }
+            
+            // Get fresh connection to new default
+            $connection = DB::connection($newDefaultName);
+            $connection->getPdo(); // Force connection
+            
+            // Also verify the default connection points to the new database
+            $actualDefault = DB::connection(); // Gets default connection
+            $actualDefault->getPdo(); // Force connection
+            
+            // Mark this as the working default
+            cache()->put('database_working_default', [
+                'name' => $newDefaultName,
+                'config_id' => $config->id,
+                'timestamp' => now(),
+            ], 86400);
+            
+            \Log::info("Successfully switched to default database: {$newDefaultName}");
+        } catch (\Exception $e) {
+            \Log::error("Failed to connect to new default database {$newDefaultName}: " . $e->getMessage());
+            
+            // Automatic fallback to previous working database
+            $this->fallbackToPreviousDefault($newDefaultName);
+            
+            throw new \Exception("Failed to switch to new default database. Fallback to previous database attempted. Error: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Fallback to previous working default database
+     * Public so it can be called from SystemDatabaseServiceProvider
+     */
+    public function fallbackToPreviousDefault(string $failedConnectionName): bool
+    {
+        try {
+            $previousDefault = cache()->get('database_previous_default');
+            
+            if (!$previousDefault) {
+                \Log::warning("No previous default database found for fallback from {$failedConnectionName}");
+                return false;
+            }
+            
+            $previousName = $previousDefault['name'] ?? null;
+            $previousConfig = $previousDefault['config'] ?? null;
+            
+            if (!$previousName || !$previousConfig) {
+                \Log::warning("Invalid previous default database data for fallback");
+                return false;
+            }
+            
+            \Log::warning("Attempting fallback to previous working database: {$previousName}");
+            
+            // Restore previous configuration
+            config(["database.connections.{$previousName}" => $previousConfig]);
+            config(['database.default' => $previousName]);
+            
+            // Test the previous connection
+            try {
+                $connection = DB::connection($previousName);
+                $connection->getPdo();
+                
+                // Update the database configuration to mark previous as default
+                $previousDbConfig = DatabaseConfiguration::where('name', $previousName)->first();
+                if ($previousDbConfig) {
+                    // Unset current failed default
+                    DatabaseConfiguration::where('name', $failedConnectionName)
+                        ->update(['is_default' => false]);
+                    
+                    // Set previous as default
+                    $previousDbConfig->is_default = true;
+                    $previousDbConfig->save();
+                }
+                
+                // Clear cache but don't reload here to avoid recursion
+                // The configuration is already updated above
+                cache()->forget('database_configurations');
+                
+                // Don't call loadDatabaseConfigurations() here - it could cause infinite loop
+                // The config is already set, it will be loaded on next request
+                
+                \Log::info("Successfully fell back to previous working database: {$previousName}");
+                return true;
+            } catch (\Exception $e) {
+                \Log::error("Fallback to previous database also failed: " . $e->getMessage());
+                return false;
+            }
+        } catch (\Exception $e) {
+            \Log::error("Error during fallback: " . $e->getMessage());
+            return false;
+        }
     }
 
     /**

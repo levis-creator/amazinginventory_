@@ -310,17 +310,27 @@ class DatabaseConfigurationResource extends Resource
                         ->modalHeading('Set as Default Connection')
                         ->modalDescription('This will set this connection as the default database connection. The current default will be unset.')
                         ->action(function (DatabaseConfiguration $record) {
-                            $service = app(DatabaseConfigurationService::class);
-                            $service->setDefaultConnection($record);
+                            try {
+                                $service = app(DatabaseConfigurationService::class);
+                                $service->setDefaultConnection($record);
 
-                            $auditService = app(AuditLogService::class);
-                            $auditService->log('set_default', $record, null, ['is_default' => true], "Set connection '{$record->name}' as default");
+                                $auditService = app(AuditLogService::class);
+                                $auditService->log('set_default', $record, null, ['is_default' => true], "Set connection '{$record->name}' as default");
 
-                            \Filament\Notifications\Notification::make()
-                                ->title('Default Connection Updated')
-                                ->success()
-                                ->body("Connection '{$record->name}' is now the default connection.")
-                                ->send();
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Default Connection Updated')
+                                    ->success()
+                                    ->body("The application is now using '{$record->name}' as the default database connection.")
+                                    ->duration(5000)
+                                    ->send();
+                            } catch (\Exception $e) {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Failed to Set Default Connection')
+                                    ->danger()
+                                    ->body($e->getMessage())
+                                    ->duration(5000)
+                                    ->send();
+                            }
                         }),
 
                     Actions\Action::make('sync_env')

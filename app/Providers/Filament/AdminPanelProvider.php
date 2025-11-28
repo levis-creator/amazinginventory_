@@ -39,6 +39,12 @@ class AdminPanelProvider extends PanelProvider
                 Dashboard::class,
                 AuditLogsPage::class,
             ])
+            ->navigationGroups([
+                'Inventory',
+                'Financial',
+                'User Management',
+                'System',
+            ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
                 AccountWidget::class,

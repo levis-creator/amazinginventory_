@@ -22,11 +22,11 @@ class CorsSettingResource extends Resource
 
     protected static ?string $pluralModelLabel = 'CORS Settings';
 
-    protected static ?int $navigationSort = 99;
+    protected static ?int $navigationSort = 3;
 
     public static function getNavigationGroup(): ?string
     {
-        return 'System Settings';
+        return 'System';
     }
 
     public static function getNavigationIcon(): ?string

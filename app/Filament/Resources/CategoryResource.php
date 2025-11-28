@@ -23,7 +23,7 @@ class CategoryResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Categories';
 
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 2;
 
     public static function getNavigationIcon(): ?string
     {

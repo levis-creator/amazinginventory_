@@ -23,7 +23,7 @@ class ExpenseCategoryResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Expense Categories';
 
-    protected static ?int $navigationSort = 8;
+    protected static ?int $navigationSort = 1;
 
     public static function getNavigationIcon(): ?string
     {

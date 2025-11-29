@@ -18,3 +18,6 @@ class ViewCorsSetting extends ViewRecord
     }
 }
 
+
+
+

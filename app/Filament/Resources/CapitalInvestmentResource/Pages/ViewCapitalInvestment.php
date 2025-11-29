@@ -19,3 +19,6 @@ class ViewCapitalInvestment extends ViewRecord
     }
 }
 
+
+
+

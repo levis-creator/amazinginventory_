@@ -167,3 +167,6 @@ If you're on Render.com and assets are blocked:
 3. Verify `APP_URL` is set correctly
 4. Contact Render support if issue persists
 
+
+
+

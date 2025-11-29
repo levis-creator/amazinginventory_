@@ -44,3 +44,6 @@ class CapitalInvestment extends Model
     }
 }
 
+
+
+

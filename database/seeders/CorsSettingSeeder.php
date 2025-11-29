@@ -34,3 +34,6 @@ class CorsSettingSeeder extends Seeder
     }
 }
 
+
+
+

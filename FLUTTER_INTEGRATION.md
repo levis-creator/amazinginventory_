@@ -263,6 +263,146 @@ try {
 }
 ```
 
+## Flutter App Architecture
+
+### Feature-Based Structure
+
+The Flutter app follows a **feature-based architecture** for maintainability and scalability:
+
+```
+lib/
+├── core/
+│   ├── constants/
+│   │   └── app_constants.dart          # Navigation indices, app constants
+│   ├── routes/
+│   │   └── app_router.dart             # Centralized routing
+│   ├── services/
+│   │   └── navigation_service.dart     # Tab navigation service
+│   └── theme/
+│       ├── app_colors.dart             # Color system
+│       └── app_theme.dart              # Theme configuration
+│
+├── features/
+│   ├── dashboard/                      # Home/Dashboard feature
+│   │   ├── screens/
+│   │   │   └── dashboard_screen.dart
+│   │   └── widgets/
+│   │       ├── metric_card.dart
+│   │       └── stock_flow_chart.dart
+│   │
+│   ├── inventory/                      # Products/Inventory feature
+│   │   ├── models/
+│   │   │   └── product_model.dart
+│   │   ├── screens/
+│   │   │   ├── inventory_screen.dart
+│   │   │   ├── add_product_screen.dart
+│   │   │   └── product_details_screen.dart
+│   │   └── widgets/
+│   │       ├── product_card.dart
+│   │       ├── search_bar.dart
+│   │       └── filter_chips.dart
+│   │
+│   ├── notifications/                  # Notifications feature
+│   │   └── screens/
+│   │       └── notifications_screen.dart
+│   │
+│   ├── modules/                        # Modules navigation hub
+│   │   ├── models/
+│   │   │   └── module_item.dart
+│   │   ├── screens/
+│   │   │   └── modules_list_screen.dart
+│   │   └── widgets/
+│   │       └── module_list_item.dart
+│   │
+│   ├── sales/                          # Sales feature
+│   │   └── screens/
+│   │       └── sales_list_screen.dart
+│   │
+│   ├── purchases/                      # Purchases feature
+│   │   └── screens/
+│   │       └── purchases_list_screen.dart
+│   │
+│   ├── capital/                        # Capital Investments feature
+│   │   └── screens/
+│   │       └── capital_list_screen.dart
+│   │
+│   ├── expenses/                       # Expenses feature
+│   │   └── screens/
+│   │       └── expenses_list_screen.dart
+│   │
+│   ├── expense_categories/             # Expense Categories feature
+│   │   └── screens/
+│   │       └── expense_categories_list_screen.dart
+│   │
+│   ├── categories/                     # Categories feature
+│   │   └── screens/
+│   │       └── categories_list_screen.dart
+│   │
+│   ├── suppliers/                      # Suppliers feature
+│   │   └── screens/
+│   │       └── suppliers_list_screen.dart
+│   │
+│   └── stock_movements/                # Stock Movements feature
+│       └── screens/
+│           └── stock_movements_list_screen.dart
+│
+└── shared/
+    ├── utils/
+    │   └── greeting_util.dart
+    └── widgets/
+        ├── search_bar.dart              # Reusable search bar
+        └── bottom_nav_bar.dart
+```
+
+### Navigation Structure
+
+The app uses a bottom navigation bar with 4 main tabs:
+
+1. **Home** - Dashboard with metrics and charts
+2. **Inventory** - Product management
+3. **Notifications** - Alerts and notifications
+4. **More** - Modules list (access to all features)
+
+**Center Button**: Floating action button for quick actions (Add Product, New Sale, New Purchase)
+
+### Consistent UI Pattern
+
+All module screens follow the same UI structure for consistency:
+
+```
+┌─────────────────────────┐
+│  Top Bar                │
+│  [Title]    [Add Button]│
+├─────────────────────────┤
+│  Search Bar             │
+├─────────────────────────┤
+│                         │
+│  List View /            │
+│  Empty State            │
+│                         │
+└─────────────────────────┘
+```
+
+**Components:**
+- **Top Bar**: White background, title (24px bold), optional "Add" button
+- **Search Bar**: Consistent styling with search icon
+- **List View**: Scrollable list with consistent padding
+- **Empty State**: Icon, title, and helpful message
+
+### Navigation Service
+
+The app uses a `NavigationService` for decoupled tab navigation:
+
+```dart
+// Navigate to notifications from anywhere
+NavigationService.instance.navigateToNotifications();
+
+// Navigate to any tab
+NavigationService.instance.navigateToTab(AppConstants.notificationsIndex);
+```
+
+This allows features to navigate without direct coupling to the main app state.
+
 ## Available API Endpoints
 
 ### Authentication
@@ -389,6 +529,61 @@ Make sure your Flutter app can reach the API endpoint. For Android emulator, use
 
 For iOS simulator, `localhost` works fine.
 
+## Flutter App Features
+
+### Implemented Features
+
+1. **Dashboard/Home Screen**
+   - Metrics cards (Total Stock Value, Total Stock, Out of Stock, Low Stock)
+   - Stock flow chart
+   - Profile section with greeting
+   - Notification bell with badge (navigates to Notifications tab)
+
+2. **Inventory/Products Screen**
+   - Product list with search
+   - Filter chips (Total Stock, Out of Stock, Low Stock)
+   - Product cards with images and details
+   - Add product functionality
+   - Product details screen
+
+3. **Notifications Screen**
+   - Notification list (ready for API integration)
+   - Empty state
+   - Mark all as read functionality
+
+4. **Modules Screen (More Tab)**
+   - List of all 9 inventory modules
+   - Color-coded module cards
+   - Search functionality
+   - Navigation to respective module screens
+
+5. **Module Screens** (All with consistent UI)
+   - Sales List Screen
+   - Purchases List Screen
+   - Capital Investments List Screen
+   - Expenses List Screen
+   - Expense Categories List Screen
+   - Categories List Screen
+   - Suppliers List Screen
+   - Stock Movements List Screen
+   - Products (uses Inventory Screen)
+
+### UI Consistency
+
+All module screens follow the same pattern:
+- Top bar with title and "Add [Module]" button
+- Search bar for filtering
+- List view with empty state
+- Consistent spacing and styling
+- Ready for API integration
+
+### Navigation
+
+- **Bottom Navigation**: 4 tabs (Home, Inventory, Notifications, More)
+- **Center Button**: Quick actions menu
+- **Navigation Service**: Decoupled navigation for features
+- **Module Navigation**: Tap module card to navigate to list screen
+
 ## Production Checklist
 
 - [ ] Update base URL to production domain
@@ -399,6 +594,10 @@ For iOS simulator, `localhost` works fine.
 - [ ] Implement offline caching if needed
 - [ ] Add request/response logging for debugging
 - [ ] Handle network connectivity issues gracefully
+- [ ] Integrate API calls for all module screens
+- [ ] Add loading states and error handling
+- [ ] Implement pull-to-refresh
+- [ ] Add pagination for list views
 
 
 

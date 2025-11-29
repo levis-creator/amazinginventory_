@@ -2,8 +2,10 @@
 
 ## Base URL
 ```
-http://amazinginventory.test/api
+http://amazinginventory.test/api/v1
 ```
+
+**Note:** All API endpoints are versioned under `/api/v1/`. The base URL for all requests should include the `/v1` prefix.
 
 ## Authentication
 
@@ -11,7 +13,7 @@ The API uses Laravel Sanctum for authentication. You need to include the Bearer 
 
 ### Register
 ```http
-POST /api/register
+POST /api/v1/register
 Content-Type: application/json
 
 {
@@ -57,7 +59,7 @@ Content-Type: application/json
 
 ### Login
 ```http
-POST /api/login
+POST /api/v1/login
 Content-Type: application/json
 
 {
@@ -78,13 +80,13 @@ Content-Type: application/json
 
 ### Logout
 ```http
-POST /api/logout
+POST /api/v1/logout
 Authorization: Bearer {token}
 ```
 
 ### Get Authenticated User
 ```http
-GET /api/user
+GET /api/v1/user
 Authorization: Bearer {token}
 ```
 
@@ -147,7 +149,7 @@ Content-Type: application/json
 
 ### List Users
 ```http
-GET /api/users?search=john&role=admin&verified=true&per_page=15&sort_by=created_at&sort_order=desc
+GET /api/v1/users?search=john&role=admin&verified=true&per_page=15&sort_by=created_at&sort_order=desc
 Authorization: Bearer {token}
 ```
 
@@ -161,13 +163,13 @@ Authorization: Bearer {token}
 
 ### Get User
 ```http
-GET /api/users/{id}
+GET /api/v1/users/{id}
 Authorization: Bearer {token}
 ```
 
 ### Create User
 ```http
-POST /api/users
+POST /api/v1/users
 Authorization: Bearer {token}
 Content-Type: application/json
 
@@ -181,7 +183,7 @@ Content-Type: application/json
 
 ### Update User
 ```http
-PUT /api/users/{id}
+PUT /api/v1/users/{id}
 Authorization: Bearer {token}
 Content-Type: application/json
 
@@ -195,7 +197,7 @@ Content-Type: application/json
 
 ### Delete User
 ```http
-DELETE /api/users/{id}
+DELETE /api/v1/users/{id}
 Authorization: Bearer {token}
 ```
 
@@ -203,7 +205,7 @@ Authorization: Bearer {token}
 
 ### List Roles
 ```http
-GET /api/roles?search=admin&guard=web&per_page=15&sort_by=name&sort_order=asc
+GET /api/v1/roles?search=admin&guard=web&per_page=15&sort_by=name&sort_order=asc
 Authorization: Bearer {token}
 ```
 
@@ -216,13 +218,13 @@ Authorization: Bearer {token}
 
 ### Get Role
 ```http
-GET /api/roles/{id}
+GET /api/v1/roles/{id}
 Authorization: Bearer {token}
 ```
 
 ### Create Role (Admin Only)
 ```http
-POST /api/roles
+POST /api/v1/roles
 Authorization: Bearer {token}
 Content-Type: application/json
 
@@ -235,7 +237,7 @@ Content-Type: application/json
 
 ### Update Role (Admin Only)
 ```http
-PUT /api/roles/{id}
+PUT /api/v1/roles/{id}
 Authorization: Bearer {token}
 Content-Type: application/json
 
@@ -247,13 +249,13 @@ Content-Type: application/json
 
 ### Delete Role (Admin Only)
 ```http
-DELETE /api/roles/{id}
+DELETE /api/v1/roles/{id}
 Authorization: Bearer {token}
 ```
 
 ### List All Roles (Mobile-Friendly)
 ```http
-GET /api/roles/list/all
+GET /api/v1/roles/list/all
 Authorization: Bearer {token}
 ```
 
@@ -283,7 +285,7 @@ Authorization: Bearer {token}
 
 ### List Permissions (Admin Only)
 ```http
-GET /api/permissions?search=view&guard=web&role=admin&per_page=15&sort_by=name&sort_order=asc
+GET /api/v1/permissions?search=view&guard=web&role=admin&per_page=15&sort_by=name&sort_order=asc
 Authorization: Bearer {token}
 ```
 
@@ -297,13 +299,13 @@ Authorization: Bearer {token}
 
 ### Get Permission (Admin Only)
 ```http
-GET /api/permissions/{id}
+GET /api/v1/permissions/{id}
 Authorization: Bearer {token}
 ```
 
 ### Create Permission (Admin Only)
 ```http
-POST /api/permissions
+POST /api/v1/permissions
 Authorization: Bearer {token}
 Content-Type: application/json
 
@@ -316,7 +318,7 @@ Content-Type: application/json
 
 ### Update Permission (Admin Only)
 ```http
-PUT /api/permissions/{id}
+PUT /api/v1/permissions/{id}
 Authorization: Bearer {token}
 Content-Type: application/json
 
@@ -328,13 +330,13 @@ Content-Type: application/json
 
 ### Delete Permission (Admin Only)
 ```http
-DELETE /api/permissions/{id}
+DELETE /api/v1/permissions/{id}
 Authorization: Bearer {token}
 ```
 
 ### List All Permissions (Admin Only)
 ```http
-GET /api/permissions/list/all
+GET /api/v1/permissions/list/all
 Authorization: Bearer {token}
 ```
 
@@ -356,47 +358,47 @@ Authorization: Bearer {token}
 }
 ```
 
-> **Note:** Permission management is admin-only. Mobile apps should use `/api/user/permissions` and `/api/user/check-permission` instead.
+> **Note:** Permission management is admin-only. Mobile apps should use `/api/v1/user/permissions` and `/api/v1/user/check-permission` instead.
 
 ## Mobile App Considerations
 
 ### Recommended Endpoints for Mobile Apps
 
 **For Authentication & Authorization:**
-- `GET /api/user` - Get current user with roles and permissions
-- `GET /api/user/permissions` - Get just the permissions list (lighter payload)
-- `POST /api/user/check-permission` - Check if user has a specific permission
+- `GET /api/v1/user` - Get current user with roles and permissions
+- `GET /api/v1/user/permissions` - Get just the permissions list (lighter payload)
+- `POST /api/v1/user/check-permission` - Check if user has a specific permission
 
 **For Role Management (Read-Only):**
-- `GET /api/roles` - List roles (with pagination)
-- `GET /api/roles/{id}` - Get specific role
-- `GET /api/roles/list/all` - Get all roles (for dropdowns, no pagination)
+- `GET /api/v1/roles` - List roles (with pagination)
+- `GET /api/v1/roles/{id}` - Get specific role
+- `GET /api/v1/roles/list/all` - Get all roles (for dropdowns, no pagination)
 
 **Note:** Permission management endpoints are **admin-only** and not needed for mobile apps. Mobile apps only need to:
 - Check user permissions (for authorization)
 - View available roles (if needed for user assignment)
 
 **Why These Endpoints?**
-- `/user/permissions` - Returns only permissions array (smaller payload)
-- `/user/check-permission` - Quick permission check without loading full user
-- `/roles/list/all` - Simplified list for mobile UI components (dropdowns)
+- `/api/v1/user/permissions` - Returns only permissions array (smaller payload)
+- `/api/v1/user/check-permission` - Quick permission check without loading full user
+- `/api/v1/roles/list/all` - Simplified list for mobile UI components (dropdowns)
 
 ### Permission Checking in Mobile App
 
 Instead of checking permissions on every request, you can:
-1. Load user permissions once after login: `GET /api/user/permissions`
+1. Load user permissions once after login: `GET /api/v1/user/permissions`
 2. Store them locally in the mobile app
-3. Use `POST /api/user/check-permission` for server-side validation when needed
+3. Use `POST /api/v1/user/check-permission` for server-side validation when needed
 
 ### What Mobile App Doesn't Need
 
 The following endpoints are **admin-only** and restricted:
-- ❌ `POST /api/permissions` - Create permission
-- ❌ `PUT /api/permissions/{id}` - Update permission
-- ❌ `DELETE /api/permissions/{id}` - Delete permission
-- ❌ `POST /api/roles` - Create role (admin only)
-- ❌ `PUT /api/roles/{id}` - Update role (admin only)
-- ❌ `DELETE /api/roles/{id}` - Delete role (admin only)
+- ❌ `POST /api/v1/permissions` - Create permission
+- ❌ `PUT /api/v1/permissions/{id}` - Update permission
+- ❌ `DELETE /api/v1/permissions/{id}` - Delete permission
+- ❌ `POST /api/v1/roles` - Create role (admin only)
+- ❌ `PUT /api/v1/roles/{id}` - Update role (admin only)
+- ❌ `DELETE /api/v1/roles/{id}` - Delete role (admin only)
 
 These are only available to users with the `admin` role and are intended for the web admin panel.
 

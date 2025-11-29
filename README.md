@@ -28,6 +28,7 @@ Amazing Inventory is a full-featured inventory management system that provides:
 - **Multi-User Support**: Role-based access control with permissions
 - **RESTful API**: Complete API for mobile app integration
 - **Admin Dashboard**: Beautiful Filament-based admin panel with analytics widgets
+- **Flutter Mobile App**: Feature-based mobile application with consistent UI
 
 ## ✨ Features
 
@@ -96,6 +97,11 @@ Amazing Inventory is a full-featured inventory management system that provides:
 - **Vite**: Build Tool
 - **Alpine.js**: Lightweight JavaScript Framework
 - **Chart.js**: Data Visualization
+
+### Mobile App
+- **Flutter**: Cross-platform mobile framework
+- **Feature-Based Architecture**: Modular, maintainable code structure
+- **Consistent UI**: Unified design across all modules
 
 ### Database
 - **SQLite**: Default (Development)
@@ -332,6 +338,7 @@ The application includes 9 dashboard widgets providing comprehensive analytics:
 
 ## 📁 Project Structure
 
+### Backend (Laravel)
 ```
 amazinginventory/
 ├── app/
@@ -358,6 +365,32 @@ amazinginventory/
 │   ├── api.php                # API routes
 │   └── web.php                # Web routes
 └── tests/                     # Test files
+```
+
+### Mobile App (Flutter)
+```
+lib/
+├── core/
+│   ├── constants/             # App constants (navigation indices)
+│   ├── routes/                # App router
+│   ├── services/              # Navigation service
+│   └── theme/                 # Colors and theme
+├── features/                  # Feature-based modules
+│   ├── dashboard/             # Home/Dashboard
+│   ├── inventory/             # Products/Inventory
+│   ├── notifications/         # Notifications
+│   ├── modules/               # Modules navigation hub
+│   ├── sales/                 # Sales feature
+│   ├── purchases/             # Purchases feature
+│   ├── capital/               # Capital Investments
+│   ├── expenses/              # Expenses
+│   ├── expense_categories/    # Expense Categories
+│   ├── categories/            # Categories
+│   ├── suppliers/             # Suppliers
+│   └── stock_movements/       # Stock Movements
+└── shared/                    # Shared utilities and widgets
+    ├── utils/
+    └── widgets/
 ```
 
 ## 🚢 Deployment
@@ -415,7 +448,8 @@ php artisan test --coverage
 - [Architecture Documentation](./ARCHITECTURE.md) - System design and architecture
 - [Development Guide](./DEVELOPMENT.md) - Coding standards and best practices
 - [User Guide](./USER_GUIDE.md) - End-user documentation
-- [Flutter Integration](./FLUTTER_INTEGRATION.md) - Mobile app integration
+- [Flutter Integration](./FLUTTER_INTEGRATION.md) - Mobile app integration guide
+- [Flutter App Architecture](./FLUTTER_APP_ARCHITECTURE.md) - Flutter app structure and patterns
 - [CI/CD Setup](./CI_CD_READINESS.md) - Continuous integration setup
 
 ## 🤝 Contributing

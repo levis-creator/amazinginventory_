@@ -7,17 +7,42 @@ use Filament\Widgets\ChartWidget;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Top Selling Products Widget
+ *
+ * Displays a bar chart showing the top 5 selling products by revenue for the current month.
+ * Revenue is calculated as: quantity × selling_price for each sale item.
+ *
+ * @package App\Filament\Widgets
+ */
 class TopSellingProductsWidget extends ChartWidget
 {
+    /**
+     * Widget heading displayed above the chart.
+     */
     protected ?string $heading = 'Top 5 Selling Products (This Month)';
     
+    /**
+     * Widget sort order on the dashboard.
+     */
     protected static ?int $sort = 4;
     
+    /**
+     * Widget column span (responsive).
+     */
     protected int | string | array $columnSpan = [
         'md' => 1,
         'xl' => 1,
     ];
 
+    /**
+     * Get the chart data.
+     *
+     * Queries the top 5 products by total revenue (quantity × selling_price)
+     * for the current month. Returns empty chart if no sales data exists.
+     *
+     * @return array<string, mixed> Chart data structure for Chart.js
+     */
     protected function getData(): array
     {
         $now = Carbon::now();
@@ -73,6 +98,11 @@ class TopSellingProductsWidget extends ChartWidget
         ];
     }
 
+    /**
+     * Get the chart type.
+     *
+     * @return string Chart type (bar)
+     */
     protected function getType(): string
     {
         return 'bar';

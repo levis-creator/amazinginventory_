@@ -6,6 +6,19 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * Expense Model
+ *
+ * Represents a business expense that can be:
+ * - Standalone operating expense (rent, utilities, etc.)
+ * - Linked to a purchase (transport, handling, etc.)
+ * - Linked to a stock movement (for tracking inventory-related costs)
+ *
+ * Expenses are categorized using ExpenseCategory and can be tracked
+ * for financial reporting and cost analysis.
+ *
+ * @package App\Models
+ */
 class Expense extends Model
 {
     use HasFactory;

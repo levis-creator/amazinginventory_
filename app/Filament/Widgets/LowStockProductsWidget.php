@@ -8,14 +8,41 @@ use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
 
+/**
+ * Low Stock Products Widget
+ *
+ * Displays a table of products with stock levels below the threshold (default: 10 units).
+ * Shows product name, SKU, category, current stock, cost price, and selling price.
+ * Products are sorted by stock level (lowest first).
+ *
+ * @package App\Filament\Widgets
+ */
 class LowStockProductsWidget extends TableWidget
 {
+    /**
+     * Widget heading displayed above the table.
+     */
     protected static ?string $heading = 'Low Stock Products';
     
+    /**
+     * Widget sort order on the dashboard.
+     */
     protected static ?int $sort = 9;
     
+    /**
+     * Widget column span (full width).
+     */
     protected int | string | array $columnSpan = 'full';
 
+    /**
+     * Configure the table.
+     *
+     * Sets up the query to fetch active products with stock below threshold,
+     * and configures table columns and display options.
+     *
+     * @param Table $table The Filament table instance
+     * @return Table Configured table instance
+     */
     public function table(Table $table): Table
     {
         $lowStockThreshold = 10;

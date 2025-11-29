@@ -8,6 +8,23 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Purchase Model
+ *
+ * Represents a purchase order from a supplier.
+ *
+ * When a purchase is created:
+ * - Stock is automatically increased for each product
+ * - Stock movements are automatically created
+ * - A "Bale Purchase" expense is automatically created and linked
+ * - Additional expenses can be linked to the purchase
+ *
+ * When a purchase is deleted:
+ * - Stock is automatically decreased (reversed)
+ * - Adjustment stock movements are created to record the reversal
+ *
+ * @package App\Models
+ */
 class Purchase extends Model
 {
     use HasFactory;

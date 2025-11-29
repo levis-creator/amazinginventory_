@@ -9,17 +9,49 @@ use App\Models\Sale;
 use Filament\Widgets\ChartWidget;
 use Illuminate\Support\Carbon;
 
+/**
+ * Cash Flow Breakdown Widget
+ *
+ * Displays a doughnut chart showing the breakdown of cash flow components for the current month.
+ * Shows four categories:
+ * - Sales Revenue: Total revenue from sales
+ * - Capital Investments: Capital invested this month
+ * - Expenses: Total expenses this month
+ * - Purchases: Total purchase costs this month
+ *
+ * @package App\Filament\Widgets
+ */
 class CashFlowBreakdownWidget extends ChartWidget
 {
+    /**
+     * Widget heading displayed above the chart.
+     */
     protected ?string $heading = 'Cash Flow Breakdown (This Month)';
     
+    /**
+     * Widget sort order on the dashboard.
+     */
     protected static ?int $sort = 6;
     
+    /**
+     * Widget column span (responsive).
+     */
     protected int | string | array $columnSpan = [
         'md' => 1,
         'xl' => 1,
     ];
 
+    /**
+     * Get the chart data.
+     *
+     * Calculates cash flow breakdown for the current month:
+     * - Sales Revenue: Sum of all sales this month
+     * - Capital Investments: Sum of capital investments this month
+     * - Expenses: Sum of all expenses this month
+     * - Purchases: Sum of all purchases this month
+     *
+     * @return array<string, mixed> Chart data structure for Chart.js
+     */
     protected function getData(): array
     {
         $now = Carbon::now();
@@ -71,6 +103,11 @@ class CashFlowBreakdownWidget extends ChartWidget
         ];
     }
 
+    /**
+     * Get the chart type.
+     *
+     * @return string Chart type (doughnut)
+     */
     protected function getType(): string
     {
         return 'doughnut';

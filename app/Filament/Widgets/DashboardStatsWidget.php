@@ -13,10 +13,38 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Dashboard Statistics Widget
+ *
+ * Displays key performance indicators (KPIs) on the dashboard.
+ * Shows 7 statistics cards:
+ * - Total Capital Invested: All capital investments
+ * - Available Cash: Current cash position
+ * - Net Profit: Revenue minus expenses (with ROI)
+ * - Total Revenue: This month's revenue (with trend)
+ * - Net Cash Flow: Cash in minus cash out
+ * - Inventory Value: Total inventory value at cost
+ * - Low Stock Alerts: Count of products below threshold
+ *
+ * Statistics are cached for 60 seconds to improve performance.
+ *
+ * @package App\Filament\Widgets
+ */
 class DashboardStatsWidget extends StatsOverviewWidget
 {
+    /**
+     * Widget sort order on the dashboard (appears first).
+     */
     protected static ?int $sort = 1;
 
+    /**
+     * Get the statistics cards.
+     *
+     * Calculates and returns an array of Stat objects representing
+     * key performance indicators. Results are cached for 60 seconds.
+     *
+     * @return array<int, Stat> Array of Stat objects
+     */
     protected function getStats(): array
     {
         // Cache dashboard stats for 60 seconds to improve performance

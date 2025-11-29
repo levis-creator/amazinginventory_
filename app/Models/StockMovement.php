@@ -6,6 +6,17 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * Stock Movement Model
+ *
+ * Represents a stock movement record tracking changes in product inventory.
+ * Stock movements are automatically created when:
+ * - Products are purchased (type: 'in', reason: 'purchase')
+ * - Products are sold (type: 'out', reason: 'sale')
+ * - Stock is manually adjusted (type: 'in'/'out', reason: 'adjustment')
+ *
+ * @package App\Models
+ */
 class StockMovement extends Model
 {
     use HasFactory;

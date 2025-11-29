@@ -4,11 +4,39 @@ namespace App\Services;
 
 use App\Models\CorsSetting;
 
+/**
+ * CORS Service
+ *
+ * Manages Cross-Origin Resource Sharing (CORS) configuration.
+ * Retrieves CORS settings from the database with fallback to environment variables.
+ * Configuration is cached for 5 minutes to improve performance.
+ *
+ * Features:
+ * - Database-driven CORS configuration
+ * - Automatic fallback to .env/config if database is unavailable
+ * - Query timeout protection to prevent hanging requests
+ * - Caching for performance optimization
+ *
+ * @package App\Services
+ */
 class CorsService
 {
     /**
-     * Get CORS configuration from database or fallback to env/config
-     * Cached for 5 minutes to prevent slow queries on every request
+     * Get CORS configuration from database or fallback to env/config.
+     *
+     * Retrieves active CORS settings from the database. If the database query
+     * fails or times out, falls back to environment variables or default config.
+     * Results are cached for 5 minutes to prevent slow queries on every request.
+     *
+     * @return array<string, mixed> CORS configuration array with keys:
+     *   - paths: Array of paths to apply CORS
+     *   - allowed_methods: Array of allowed HTTP methods
+     *   - allowed_origins: Array of allowed origin URLs
+     *   - allowed_origins_patterns: Array of allowed origin patterns
+     *   - allowed_headers: Array of allowed headers
+     *   - exposed_headers: Array of exposed headers
+     *   - max_age: Preflight cache duration in seconds
+     *   - supports_credentials: Whether to allow credentials
      */
     public static function getConfig(): array
     {

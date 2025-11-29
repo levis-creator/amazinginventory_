@@ -63,12 +63,14 @@ Amazing Inventory is a full-featured inventory management system that provides:
   - API token authentication (Sanctum)
 
 - **Dashboard & Analytics**
-  - Real-time statistics
-  - Cash flow trends
-  - Revenue vs expenses charts
-  - Top selling products
-  - Low stock alerts
-  - Recent transactions
+  - Real-time statistics (7 KPI cards)
+  - Cash flow trends (30-day line chart)
+  - Cash flow breakdown (monthly doughnut chart)
+  - Revenue vs expenses trends
+  - Capital utilization visualization
+  - Top selling products (bar chart)
+  - Low stock alerts (table widget)
+  - Recent sales and capital investments
 
 - **API Integration**
   - RESTful API (v1)
@@ -299,6 +301,35 @@ Complete API documentation is available in [API_DOCUMENTATION.md](./API_DOCUMENT
 Interactive API documentation (Swagger) is available at:
 - `/api/documentation` (when L5-Swagger is configured)
 
+## 📊 Dashboard Widgets
+
+The application includes 9 dashboard widgets providing comprehensive analytics:
+
+1. **Dashboard Stats Widget** - 7 KPI cards showing:
+   - Total Capital Invested
+   - Available Cash
+   - Net Profit (with ROI)
+   - Total Revenue (with trend)
+   - Net Cash Flow
+   - Inventory Value
+   - Low Stock Alerts
+
+2. **Cash Flow Trend Widget** - 30-day line chart tracking cash in, cash out, and net cash flow
+
+3. **Revenue vs Expenses Trend Widget** - 30-day comparison of revenue and expenses
+
+4. **Top Selling Products Widget** - Bar chart of top 5 products by revenue this month
+
+5. **Capital Utilization Widget** - Pie chart showing capital allocation (inventory, cash, other)
+
+6. **Cash Flow Breakdown Widget** - Doughnut chart of cash flow components this month
+
+7. **Recent Capital Investments Widget** - Table of 5 most recent investments
+
+8. **Recent Sales Widget** - Table of 10 most recent sales
+
+9. **Low Stock Products Widget** - Table of products below stock threshold
+
 ## 📁 Project Structure
 
 ```
@@ -306,7 +337,7 @@ amazinginventory/
 ├── app/
 │   ├── Filament/              # Filament admin panel resources
 │   │   ├── Resources/         # CRUD resources
-│   │   ├── Widgets/           # Dashboard widgets
+│   │   ├── Widgets/           # Dashboard widgets (9 widgets)
 │   │   └── Pages/             # Custom pages
 │   ├── Http/
 │   │   ├── Controllers/       # API controllers

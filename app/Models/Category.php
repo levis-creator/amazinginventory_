@@ -6,6 +6,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * Category Model
+ *
+ * Represents a product category for organizing products.
+ * Categories can be active or inactive, and can have multiple products.
+ *
+ * @package App\Models
+ */
 class Category extends Model
 {
     use HasFactory;

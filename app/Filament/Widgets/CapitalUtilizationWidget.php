@@ -10,17 +10,49 @@ use App\Models\Sale;
 use Filament\Widgets\ChartWidget;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Capital Utilization Widget
+ *
+ * Displays a pie chart showing how capital is being utilized:
+ * - Inventory Value: Capital tied up in inventory (stock × cost_price)
+ * - Available Cash: Cash available after all transactions
+ * - Other: Capital not in inventory or cash (losses, etc.)
+ *
+ * Helps visualize capital allocation and identify where money is invested.
+ *
+ * @package App\Filament\Widgets
+ */
 class CapitalUtilizationWidget extends ChartWidget
 {
+    /**
+     * Widget heading displayed above the chart.
+     */
     protected ?string $heading = 'Capital Utilization';
     
+    /**
+     * Widget sort order on the dashboard.
+     */
     protected static ?int $sort = 5;
     
+    /**
+     * Widget column span (responsive).
+     */
     protected int | string | array $columnSpan = [
         'md' => 1,
         'xl' => 1,
     ];
 
+    /**
+     * Get the chart data.
+     *
+     * Calculates capital utilization breakdown:
+     * - Total Capital: Sum of all capital investments
+     * - Inventory Value: Sum of (stock × cost_price) for active products
+     * - Available Cash: Capital + (Sales - Expenses - Purchases)
+     * - Other: Remaining capital not accounted for
+     *
+     * @return array<string, mixed> Chart data structure for Chart.js
+     */
     protected function getData(): array
     {
         // Total Capital Invested
@@ -66,6 +98,11 @@ class CapitalUtilizationWidget extends ChartWidget
         ];
     }
 
+    /**
+     * Get the chart type.
+     *
+     * @return string Chart type (pie)
+     */
     protected function getType(): string
     {
         return 'pie';

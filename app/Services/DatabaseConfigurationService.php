@@ -9,10 +9,45 @@ use Illuminate\Support\Str;
 use Exception;
 use PDO;
 
+/**
+ * Database Configuration Service
+ *
+ * Manages database connection configurations stored in the system database.
+ * Provides functionality to test connections, sync configurations to .env files,
+ * and switch default database connections with automatic fallback.
+ *
+ * Features:
+ * - Connection testing with timeout protection
+ * - Support for MySQL, PostgreSQL, and SQLite
+ * - Automatic fallback to previous working connection on failure
+ * - .env file synchronization
+ * - Connection pooling support (PostgreSQL)
+ *
+ * @package App\Services
+ */
 class DatabaseConfigurationService
 {
     /**
-     * Test database connection
+     * Test a database connection configuration.
+     *
+     * Creates a temporary connection and tests it with timeout protection.
+     * Returns connection status, database name, and version information.
+     *
+     * @param array<string, mixed> $config Connection configuration array with keys:
+     *   - driver: Database driver (mysql, pgsql, sqlite)
+     *   - host: Database host
+     *   - port: Database port
+     *   - database: Database name
+     *   - username: Database username
+     *   - password: Database password
+     *   - charset: Character set (optional)
+     *   - sslmode: SSL mode for PostgreSQL (optional)
+     * @return array<string, mixed> Test result with keys:
+     *   - success: bool - Whether connection was successful
+     *   - message: string - Success or error message
+     *   - database: string|null - Database name (on success)
+     *   - version: string|null - Database version (on success)
+     *   - error: string|null - Exception class name (on failure)
      */
     public function testConnection(array $config): array
     {
@@ -128,7 +163,12 @@ class DatabaseConfigurationService
     }
 
     /**
-     * Get database name (driver-specific)
+     * Get database name using driver-specific queries.
+     *
+     * @param string $connection Connection name
+     * @param string $driver Database driver
+     * @param string $fallback Fallback database name
+     * @return string Database name
      */
     protected function getDatabaseName(string $connection, string $driver, string $fallback): string
     {
@@ -152,7 +192,11 @@ class DatabaseConfigurationService
     }
 
     /**
-     * Get database version
+     * Get database version using driver-specific queries.
+     *
+     * @param string $connection Connection name
+     * @param string $driver Database driver
+     * @return string|null Database version or null on error
      */
     protected function getDatabaseVersion(string $connection, string $driver): ?string
     {
@@ -175,7 +219,17 @@ class DatabaseConfigurationService
     }
 
     /**
-     * Sync configuration to .env file
+     * Sync database configuration to .env file.
+     *
+     * Updates the .env file with database configuration values.
+     * Creates a backup before making changes.
+     *
+     * @param DatabaseConfiguration $config The database configuration to sync
+     * @return array<string, mixed> Result with keys:
+     *   - success: bool - Whether sync was successful
+     *   - message: string - Success or error message
+     *   - backup: string|null - Path to backup file (on success)
+     *   - export: string|null - Manual export format (on failure)
      */
     public function syncToEnv(DatabaseConfiguration $config): array
     {
@@ -252,7 +306,13 @@ class DatabaseConfigurationService
     }
 
     /**
-     * Get .env export format for manual update
+     * Get .env export format for manual update.
+     *
+     * Returns a formatted string that can be manually added to .env file
+     * if automatic sync fails.
+     *
+     * @param DatabaseConfiguration $config The database configuration
+     * @return string Formatted .env file content
      */
     public function getEnvExportFormat(DatabaseConfiguration $config): string
     {
@@ -274,7 +334,15 @@ class DatabaseConfigurationService
     }
 
     /**
-     * Set default connection
+     * Set a database configuration as the default connection.
+     *
+     * Tests the connection before switching and provides automatic fallback
+     * to the previous working connection if the new connection fails.
+     * Clears all caches and purges existing connections to ensure fresh state.
+     *
+     * @param DatabaseConfiguration $config The configuration to set as default
+     * @return void
+     * @throws Exception If connection test fails or connection cannot be established
      */
     public function setDefaultConnection(DatabaseConfiguration $config): void
     {
@@ -408,8 +476,14 @@ class DatabaseConfigurationService
     }
 
     /**
-     * Fallback to previous working default database
-     * Public so it can be called from SystemDatabaseServiceProvider
+     * Fallback to previous working default database.
+     *
+     * Attempts to restore the previous working database connection when
+     * a new default connection fails. This provides automatic recovery
+     * from connection failures.
+     *
+     * @param string $failedConnectionName The name of the connection that failed
+     * @return bool Whether fallback was successful
      */
     public function fallbackToPreviousDefault(string $failedConnectionName): bool
     {
@@ -472,7 +546,14 @@ class DatabaseConfigurationService
     }
 
     /**
-     * Apply configuration to Laravel config
+     * Apply database configuration to Laravel config.
+     *
+     * Updates Laravel's database configuration with the provided configuration
+     * and clears connection caches. If the configuration is marked as default,
+     * updates the default connection as well.
+     *
+     * @param DatabaseConfiguration $config The configuration to apply
+     * @return void
      */
     public function applyConfiguration(DatabaseConfiguration $config): void
     {

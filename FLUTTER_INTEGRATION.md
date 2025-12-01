@@ -529,6 +529,129 @@ Make sure your Flutter app can reach the API endpoint. For Android emulator, use
 
 For iOS simulator, `localhost` works fine.
 
+## API Request Logging
+
+All API requests from the Flutter app are automatically logged in development mode for debugging purposes.
+
+### Features
+
+- **Automatic Logging**: All API requests are logged when `APP_ENV` is set to `local`, `development`, or `dev`
+- **Comprehensive Details**: Logs include:
+  - Request method, URL, path, IP address
+  - Request headers (sensitive headers like Authorization are masked)
+  - Request body (sensitive fields like passwords are masked)
+  - Query parameters
+  - Authenticated user information
+  - Response status code and time
+  - Response content (truncated if > 1000 characters)
+
+### Viewing Logs
+
+Logs are written to `storage/logs/laravel.log`. You can view them using:
+
+**Option 1: Tail the log file (real-time)**
+```bash
+tail -f storage/logs/laravel.log
+```
+
+**Option 2: Use Laravel Pail (if installed)**
+```bash
+php artisan pail
+```
+
+**Option 3: View in your IDE**
+Open `storage/logs/laravel.log` in your text editor
+
+### Log Format
+
+Logs are structured with the following format:
+- **Info level**: Successful requests (2xx status codes)
+- **Warning level**: Client errors (4xx status codes)
+- **Error level**: Server errors (5xx status codes)
+
+Each log entry includes:
+- Request details (method, URL, headers, body, user)
+- Response details (status code, response time, content)
+- Timestamp
+
+### Security
+
+Sensitive information is automatically masked:
+- Authorization headers
+- Passwords and password confirmations
+- API tokens
+- Cookies
+
+The logging middleware only runs in development environments and is automatically disabled in production.
+
+## Flutter App Request Logging
+
+The Flutter app also includes comprehensive request logging for debugging API interactions.
+
+### Features
+
+- **Automatic Logging**: All API requests are logged when running in **debug mode** (`kDebugMode`)
+- **Beautiful Console Output**: Uses the `logger` package with colored, formatted output
+- **Comprehensive Details**: Logs include:
+  - Request method, URL, headers (sensitive headers masked)
+  - Request body (sensitive fields like passwords masked)
+  - Query parameters
+  - Response status code and message
+  - Response data (truncated if large)
+  - Error details with stack traces
+- **Smart Masking**: Automatically masks sensitive information:
+  - Authorization tokens
+  - Passwords and password confirmations
+  - API keys and tokens
+- **Status Indicators**: Uses emojis to quickly identify request status:
+  - ✅ Success (2xx)
+  - 🟡 Warning (4xx client errors)
+  - 🔴 Error (5xx server errors)
+  - ❌ Network/connection errors
+
+### Viewing Logs
+
+Logs are displayed in the Flutter console when running in debug mode:
+
+```bash
+# Run the app in debug mode
+flutter run
+
+# Or use your IDE's debug console
+```
+
+### Log Format
+
+The logger provides structured, color-coded output:
+
+```
+🌐 API Request
+  Method: POST
+  URL: https://amazinginventory.onrender.com/api/v1/login
+  Headers: {Content-Type: application/json, Authorization: ***MASKED***}
+  Body: {email: user@example.com, password: ***MASKED***}
+
+✅ API Response
+  Method: POST
+  URL: https://amazinginventory.onrender.com/api/v1/login
+  Status: 200 OK
+  Response Time: 245ms
+  Data: {access_token: ..., user: {...}}
+```
+
+### Configuration
+
+The logging interceptor is automatically enabled in debug mode and disabled in release builds. No configuration needed!
+
+**Location**: `lib/core/services/api_logging_interceptor.dart`
+
+### Security
+
+- Logging only occurs in debug mode (`kDebugMode`)
+- Sensitive data is automatically masked
+- No logs are generated in release/production builds
+- All logging is client-side only (no data sent externally)
+
 ## Flutter App Features
 
 ### Implemented Features
@@ -592,7 +715,7 @@ All module screens follow the same pattern:
 - [ ] Add error handling and retry logic
 - [ ] Test all API endpoints
 - [ ] Implement offline caching if needed
-- [ ] Add request/response logging for debugging
+- [x] Add request/response logging for debugging ✅
 - [ ] Handle network connectivity issues gracefully
 - [ ] Integrate API calls for all module screens
 - [ ] Add loading states and error handling

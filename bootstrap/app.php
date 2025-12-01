@@ -24,6 +24,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(prepend: [
             \App\Http\Middleware\DatabaseConnectionFallback::class,
         ]);
+        
+        // Add API request logging middleware (only logs in dev mode)
+        // This logs all API requests for debugging Flutter app integration
+        $middleware->api(prepend: [
+            \App\Http\Middleware\LogApiRequests::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

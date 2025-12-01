@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\ExpenseResource\Pages;
 
 use App\Filament\Resources\ExpenseResource;
+use App\Services\AuditLogService;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 
@@ -15,6 +16,13 @@ class CreateExpense extends CreateRecord
         $data['created_by'] = auth()->id();
         
         return $data;
+    }
+
+    protected function afterCreate(): void
+    {
+        // Log the creation
+        $auditService = app(AuditLogService::class);
+        $auditService->logCreate($this->record, $this->record->toArray());
     }
 
     protected function getRedirectUrl(): string

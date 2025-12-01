@@ -94,6 +94,10 @@ class CreatePurchase extends CreateRecord
                 'purchase_id' => $this->record->id,
             ]);
 
+            // Log the creation
+            $auditService = app(\App\Services\AuditLogService::class);
+            $auditService->logCreate($this->record, $this->record->toArray());
+
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();

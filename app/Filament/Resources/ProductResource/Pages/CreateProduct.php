@@ -3,12 +3,20 @@
 namespace App\Filament\Resources\ProductResource\Pages;
 
 use App\Filament\Resources\ProductResource;
+use App\Services\AuditLogService;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateProduct extends CreateRecord
 {
     protected static string $resource = ProductResource::class;
+
+    protected function afterCreate(): void
+    {
+        // Log the creation
+        $auditService = app(AuditLogService::class);
+        $auditService->logCreate($this->record, $this->record->toArray());
+    }
 
     protected function getRedirectUrl(): string
     {

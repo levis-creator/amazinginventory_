@@ -706,6 +706,129 @@
                 ]
             }
         },
+        "/api/v1/dashboard/stats": {
+            "get": {
+                "tags": [
+                    "Dashboard"
+                ],
+                "summary": "Get dashboard statistics",
+                "description": "Retrieve key inventory metrics including stock value, stock count, and alerts",
+                "operationId": "d87dd1b4d8881af3798cb3a56f1740ee",
+                "responses": {
+                    "200": {
+                        "description": "Successful response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "total_stock_value": {
+                                                    "type": "string",
+                                                    "example": "45210.00"
+                                                },
+                                                "total_stock": {
+                                                    "type": "integer",
+                                                    "example": 1284
+                                                },
+                                                "out_of_stock": {
+                                                    "type": "integer",
+                                                    "example": 8
+                                                },
+                                                "low_stock": {
+                                                    "type": "integer",
+                                                    "example": 23
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/dashboard/revenue-expenses-chart": {
+            "get": {
+                "tags": [
+                    "Dashboard"
+                ],
+                "summary": "Get revenue vs expenses chart data",
+                "description": "Retrieve daily revenue and expenses data for the last 30 days",
+                "operationId": "6afc482f4157169e0c378a4061da045a",
+                "responses": {
+                    "200": {
+                        "description": "Successful response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "labels": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string"
+                                                    },
+                                                    "example": [
+                                                        "Jan 1",
+                                                        "Jan 2",
+                                                        "Jan 3"
+                                                    ]
+                                                },
+                                                "revenue_data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "number"
+                                                    },
+                                                    "example": [
+                                                        100.5,
+                                                        200.75,
+                                                        150.25
+                                                    ]
+                                                },
+                                                "expenses_data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "number"
+                                                    },
+                                                    "example": [
+                                                        50,
+                                                        75,
+                                                        60
+                                                    ]
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
         "/api/v1/expense-categories": {
             "get": {
                 "tags": [
@@ -5644,6 +5767,10 @@
         {
             "name": "Categories",
             "description": "Categories"
+        },
+        {
+            "name": "Dashboard",
+            "description": "Dashboard"
         },
         {
             "name": "Expense Categories",

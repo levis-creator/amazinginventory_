@@ -50,6 +50,32 @@ else
     fi
 fi
 
+# Handle SQLite database file creation for system database
+if [ "$SYSTEM_DB_CONNECTION" = "sqlite" ]; then
+    echo "📁 Setting up System SQLite database..."
+    SYSTEM_DB_PATH=${SYSTEM_DB_DATABASE:-/var/www/html/database/system.sqlite}
+    
+    # Create database directory if it doesn't exist
+    SYSTEM_DB_DIR=$(dirname "$SYSTEM_DB_PATH")
+    mkdir -p "$SYSTEM_DB_DIR"
+    
+    # Create database file if it doesn't exist
+    if [ ! -f "$SYSTEM_DB_PATH" ]; then
+        echo "📝 Creating System SQLite database file at $SYSTEM_DB_PATH..."
+        touch "$SYSTEM_DB_PATH"
+        chmod 664 "$SYSTEM_DB_PATH"
+        chown www-data:www-data "$SYSTEM_DB_PATH"
+        echo "✅ System SQLite database file created!"
+    else
+        echo "✅ System SQLite database file already exists!"
+    fi
+    
+    # Ensure database directory is writable
+    chmod -R 775 "$SYSTEM_DB_DIR"
+    chown -R www-data:www-data "$SYSTEM_DB_DIR"
+    echo "✅ System database will use SQLite: $SYSTEM_DB_PATH"
+fi
+
 # Run migrations and seed for all databases
 # The migrate:all command handles both system and application database migrations
 # The seeder uses firstOrCreate, so it's safe to run multiple times

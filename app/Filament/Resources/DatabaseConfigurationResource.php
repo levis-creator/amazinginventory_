@@ -224,6 +224,16 @@ class DatabaseConfigurationResource extends Resource
 
     public static function table(Table $table): Table
     {
+        // Check if the database_configurations table exists before setting up the table
+        // This prevents errors when the table hasn't been migrated yet
+        if (!IlluminateSchema::connection('system')->hasTable('database_configurations')) {
+            return $table
+                ->columns([])
+                ->emptyStateHeading('Database Configurations Table Not Found')
+                ->emptyStateDescription('The database_configurations table has not been created yet. Please run the migration: php artisan migrate --database=system --path=database/migrations/system --force')
+                ->emptyStateIcon('heroicon-o-exclamation-triangle');
+        }
+
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')

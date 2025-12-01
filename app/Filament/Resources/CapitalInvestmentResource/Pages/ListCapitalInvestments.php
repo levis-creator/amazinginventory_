@@ -23,3 +23,4 @@ class ListCapitalInvestments extends ListRecords
 
 
 
+

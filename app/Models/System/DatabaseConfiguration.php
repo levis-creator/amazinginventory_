@@ -13,6 +13,27 @@ class DatabaseConfiguration extends Model
 
     protected $connection = 'system';
 
+    /**
+     * Create a new Eloquent query builder for the model.
+     * Override to handle cases where table doesn't exist yet.
+     */
+    public function newQuery()
+    {
+        try {
+            return parent::newQuery();
+        } catch (\Illuminate\Database\QueryException $e) {
+            // If table doesn't exist, return a query that will return empty results
+            if (str_contains($e->getMessage(), 'no such table') || 
+                str_contains($e->getMessage(), 'does not exist')) {
+                // Return a query builder that will return empty collection
+                // This prevents errors when migrations haven't run yet
+                return $this->newQueryWithoutScopes()
+                    ->whereRaw('1 = 0'); // This condition never matches
+            }
+            throw $e;
+        }
+    }
+
     protected $fillable = [
         'name',
         'driver',

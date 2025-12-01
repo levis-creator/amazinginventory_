@@ -12,6 +12,200 @@
         }
     ],
     "paths": {
+        "/admin/migrations/system": {
+            "post": {
+                "tags": [
+                    "Admin - Migrations"
+                ],
+                "summary": "Run system database migrations",
+                "description": "Runs migrations for the system database (database_configurations table, etc.). Requires admin authentication. Useful for free-tier deployments without shell access.",
+                "operationId": "f6d3079c6b342f38119a516c6d412f21",
+                "responses": {
+                    "200": {
+                        "description": "Migrations completed successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "System database migrations completed successfully."
+                                        },
+                                        "table_exists": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "output": {
+                                            "type": "string",
+                                            "example": "Migrating: 2025_01_01_000001_create_database_configurations_table"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Unauthorized - Admin access required",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthorized. Admin access required."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Migration failed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "exit_code": {
+                                            "type": "integer",
+                                            "nullable": true
+                                        },
+                                        "output": {
+                                            "type": "string",
+                                            "nullable": true
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/admin/migrations/all": {
+            "post": {
+                "tags": [
+                    "Admin - Migrations"
+                ],
+                "summary": "Run all database migrations",
+                "description": "Runs migrations for both system and application databases. Requires admin authentication.",
+                "operationId": "5ed99781ad1d22fc2ec475b219cb0f57",
+                "responses": {
+                    "200": {
+                        "description": "All migrations completed successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "All database migrations completed successfully."
+                                        },
+                                        "system_table_exists": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "output": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Unauthorized - Admin access required"
+                    },
+                    "500": {
+                        "description": "Migration failed"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/admin/migrations/status": {
+            "get": {
+                "tags": [
+                    "Admin - Migrations"
+                ],
+                "summary": "Check migration status",
+                "description": "Returns the status of system database tables to verify if migrations have been run. Requires admin authentication.",
+                "operationId": "c58a26b28e6c8c78d0901d1c27899862",
+                "responses": {
+                    "200": {
+                        "description": "Migration status retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "system": {
+                                            "properties": {
+                                                "database_configurations_table_exists": {
+                                                    "type": "boolean",
+                                                    "example": true
+                                                },
+                                                "migrations_table_exists": {
+                                                    "type": "boolean",
+                                                    "example": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Unauthorized - Admin access required"
+                    },
+                    "500": {
+                        "description": "Error checking status"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
         "/api/v1/register": {
             "post": {
                 "tags": [
@@ -5760,6 +5954,10 @@
         }
     },
     "tags": [
+        {
+            "name": "Admin - Migrations",
+            "description": "Admin - Migrations"
+        },
         {
             "name": "Authentication",
             "description": "Authentication"

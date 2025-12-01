@@ -1146,6 +1146,85 @@ Authorization: Bearer {token}
 - Automatically created when purchases are made
 - Linked to purchase_id or stock_movement_id
 
+## Admin Migration API
+
+> **⚠️ Admin Only:** All migration endpoints require the `admin` role. These endpoints are useful for free-tier deployments on Render.com where shell access is not available.
+
+### Check Migration Status
+```http
+GET /admin/migrations/status
+Authorization: Bearer {token}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "system": {
+    "database_configurations_table_exists": true,
+    "migrations_table_exists": true
+  }
+}
+```
+
+**Use Case:** Check if system database tables exist before running migrations.
+
+### Run System Migrations
+```http
+POST /admin/migrations/system
+Authorization: Bearer {token}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "System database migrations completed successfully.",
+  "table_exists": true,
+  "output": "Migrating: 2025_01_01_000001_create_database_configurations_table\nMigrated:  2025_01_01_000001_create_database_configurations_table"
+}
+```
+
+**Use Case:** Run migrations for the system database (creates `database_configurations` table, etc.). Useful when the system database hasn't been migrated yet.
+
+**Error Response (403):**
+```json
+{
+  "success": false,
+  "message": "Unauthorized. Admin access required."
+}
+```
+
+**Error Response (500):**
+```json
+{
+  "success": false,
+  "message": "An error occurred while running migrations: ...",
+  "exit_code": 1,
+  "output": "..."
+}
+```
+
+### Run All Migrations
+```http
+POST /admin/migrations/all
+Authorization: Bearer {token}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "All database migrations completed successfully.",
+  "system_table_exists": true,
+  "output": "..."
+}
+```
+
+**Use Case:** Run migrations for both system and application databases in one request.
+
+**Note:** These endpoints are primarily designed for free-tier deployments on Render.com where shell access is not available. For paid tiers, use the shell commands instead.
+
 ## Response Format
 
 All successful responses follow this format:

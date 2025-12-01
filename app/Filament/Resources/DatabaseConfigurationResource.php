@@ -222,21 +222,6 @@ class DatabaseConfigurationResource extends Resource
             ]);
     }
 
-    /**
-     * Modify the query used to retrieve records.
-     * Prevents queries when the table doesn't exist yet.
-     */
-    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
-    {
-        // Check if the table exists before allowing queries
-        if (!IlluminateSchema::connection('system')->hasTable('database_configurations')) {
-            // Return parent query - the table() method will handle the empty state
-            // This will still try to query, but we catch it in the table method
-            return parent::getEloquentQuery();
-        }
-
-        return parent::getEloquentQuery();
-    }
 
     public static function table(Table $table): Table
     {

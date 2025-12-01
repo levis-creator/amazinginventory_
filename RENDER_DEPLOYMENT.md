@@ -198,16 +198,58 @@ Before deploying to Render, you need to set up Supabase:
 
 ### 1. Run Database Migrations
 
-Migrations run automatically during build, but you can verify:
+**Migrations run automatically during deployment** via `docker-entrypoint.sh`, which:
+- Creates system database file (if using SQLite)
+- Runs system database migrations first
+- Runs application database migrations
+- Seeds the database (if `SEED_DATABASE=true`)
+
+#### For Free Tier (No Shell Access)
+
+If you're on Render's free tier and don't have shell access, you can run migrations via web routes:
+
+**Option 1: Check Migration Status**
+```http
+GET https://your-app.onrender.com/admin/migrations/status
+Authorization: Bearer {your_admin_token}
+```
+
+**Option 2: Run System Migrations**
+```http
+POST https://your-app.onrender.com/admin/migrations/system
+Authorization: Bearer {your_admin_token}
+```
+
+**Option 3: Run All Migrations**
+```http
+POST https://your-app.onrender.com/admin/migrations/all
+Authorization: Bearer {your_admin_token}
+```
+
+**Note:** These routes require admin authentication. You must be logged in as an admin user.
+
+#### For Paid Tier (With Shell Access)
+
+If you have shell access, you can verify migrations:
 
 ```bash
 # Using Render Shell
 php artisan migrate:status
 php artisan migrate --force
+php artisan migrate --database=system --path=database/migrations/system --force
 ```
 
 ### 2. Seed Database (First Time Only)
 
+Seeding runs automatically during deployment if `SEED_DATABASE=true` (default).
+
+If you need to seed manually:
+
+**Free Tier (Web Route):**
+- Seeding happens automatically during deployment
+- Or trigger via redeploy
+
+**Paid Tier (Shell):**
 ```bash
 # Using Render Shell
 php artisan db:seed --force
@@ -223,6 +265,7 @@ This will create:
 2. Access Filament admin panel at `/admin`
 3. Login with credentials from environment variables
 4. Verify all features are working
+5. Check `/admin/database-configurations` to ensure system migrations ran successfully
 
 ## Environment Variables Reference
 

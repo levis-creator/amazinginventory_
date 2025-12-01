@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\ExpenseCategoryController;
 use App\Http\Controllers\Api\ExpenseController;
 use App\Http\Controllers\Api\PermissionController;
@@ -50,6 +51,14 @@ $registerV1Routes = function ($useNames = true) {
             $userRoute->name('api.v1.user');
             $permissionsRoute->name('api.v1.user.permissions');
             $checkPermissionRoute->name('api.v1.user.check-permission');
+        }
+
+        // Dashboard routes - accessible to all authenticated users
+        $dashboardStatsRoute = Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
+        $dashboardChartRoute = Route::get('/dashboard/revenue-expenses-chart', [DashboardController::class, 'revenueExpensesChart']);
+        if ($useNames) {
+            $dashboardStatsRoute->name('api.v1.dashboard.stats');
+            $dashboardChartRoute->name('api.v1.dashboard.revenue-expenses-chart');
         }
 
         // Category management routes - accessible to all authenticated users

@@ -79,8 +79,27 @@ fi
 # Run migrations and seed for all databases
 # The migrate:all command handles both system and application database migrations
 # The seeder uses firstOrCreate, so it's safe to run multiple times
+
+# IMPORTANT: Run system database migrations FIRST, before application migrations
+# This ensures the database_configurations table exists before the app tries to use it
+echo "🗄️  Running system database migrations..."
+if php artisan migrate --database=system --path=database/migrations/system --force; then
+    echo "✅ System database migrations completed successfully"
+else
+    echo "⚠️  System database migrations failed or already up to date"
+    # Continue anyway - migrations might already be run
+fi
+
+# Now run application database migrations
+echo "🗄️  Running application database migrations..."
+if php artisan migrate --force; then
+    echo "✅ Application database migrations completed successfully"
+else
+    echo "⚠️  Application database migrations failed or already up to date"
+fi
+
 if [ "${SEED_DATABASE:-true}" = "true" ]; then
-    echo "🗄️  Running migrations and seeding for all databases..."
+    echo "🗄️  Seeding databases..."
     
     # Check if FILAMENT_ADMIN_EMAIL is set
     if [ -z "$FILAMENT_ADMIN_EMAIL" ]; then
@@ -90,8 +109,8 @@ if [ "${SEED_DATABASE:-true}" = "true" ]; then
         echo "✅ FILAMENT_ADMIN_EMAIL is set to: $FILAMENT_ADMIN_EMAIL"
     fi
     
-    # Run migrations and seeding for all databases using the custom migrate:all command
-    php artisan migrate:all --seed --force || echo "⚠️  Migration or seeding failed or already up to date"
+    # Run seeders
+    php artisan db:seed --force || echo "⚠️  Seeding failed or already completed"
     
     # Clear permission cache to ensure roles are fresh (critical for shared DB)
     echo "🔄 Clearing permission cache (important for shared database)..."

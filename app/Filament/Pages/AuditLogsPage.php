@@ -9,6 +9,7 @@ use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 
 class AuditLogsPage extends Page implements HasTable
 {
@@ -37,6 +38,24 @@ class AuditLogsPage extends Page implements HasTable
 
     public function table(Table $table): Table
     {
+        // Check if audit_logs table exists, if not return empty query with a message
+        $hasTable = false;
+        try {
+            $hasTable = Schema::connection('system')->hasTable('audit_logs');
+        } catch (\Exception $e) {
+            // If connection fails, table doesn't exist
+            $hasTable = false;
+        }
+
+        if (!$hasTable) {
+            // Return empty query - the empty state will be shown
+            return $table
+                ->query(AuditLog::query()->whereRaw('1 = 0')) // Empty query
+                ->emptyStateHeading('Audit Logs Table Not Found')
+                ->emptyStateDescription('The audit_logs table has not been created yet. Please run the migration: php artisan migrate --database=system --path=database/migrations/system --force')
+                ->emptyStateIcon('heroicon-o-exclamation-triangle');
+        }
+
         return $table
             ->query(AuditLog::query()->orderBy('created_at', 'desc'))
             ->columns([
@@ -94,11 +113,18 @@ class AuditLogsPage extends Page implements HasTable
 
                 Tables\Filters\SelectFilter::make('model_type')
                     ->options(function () {
-                        return AuditLog::distinct('model_type')
-                            ->whereNotNull('model_type')
-                            ->pluck('model_type')
-                            ->mapWithKeys(fn ($type) => [$type => class_basename($type)])
-                            ->toArray();
+                        try {
+                            if (!Schema::connection('system')->hasTable('audit_logs')) {
+                                return [];
+                            }
+                            return AuditLog::distinct('model_type')
+                                ->whereNotNull('model_type')
+                                ->pluck('model_type')
+                                ->mapWithKeys(fn ($type) => [$type => class_basename($type)])
+                                ->toArray();
+                        } catch (\Exception $e) {
+                            return [];
+                        }
                     }),
 
                 Tables\Filters\Filter::make('created_at')

@@ -40,3 +40,4 @@ class CorsSettingSeeder extends Seeder
 
 
 
+

@@ -210,23 +210,25 @@ If you're on Render's free tier and don't have shell access, you can run migrati
 
 **Option 1: Check Migration Status**
 ```http
-GET https://your-app.onrender.com/admin/migrations/status
+GET https://your-app.onrender.com/api/v1/admin/migrations/status
 Authorization: Bearer {your_admin_token}
 ```
 
 **Option 2: Run System Migrations**
 ```http
-POST https://your-app.onrender.com/admin/migrations/system
+POST https://your-app.onrender.com/api/v1/admin/migrations/system
 Authorization: Bearer {your_admin_token}
 ```
 
 **Option 3: Run All Migrations**
 ```http
-POST https://your-app.onrender.com/admin/migrations/all
+POST https://your-app.onrender.com/api/v1/admin/migrations/all
 Authorization: Bearer {your_admin_token}
 ```
 
-**Note:** These routes require admin authentication. You must be logged in as an admin user.
+**Note:** These routes are also available at `/admin/migrations/*` (web routes) if you prefer direct browser access.
+
+**Note:** These routes require super admin authentication. You must be logged in as a user with the `super_admin` role.
 
 #### For Paid Tier (With Shell Access)
 

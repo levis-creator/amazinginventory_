@@ -50,3 +50,4 @@ class CapitalInvestment extends Model
 
 
 
+

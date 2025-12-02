@@ -38,3 +38,4 @@ class CreateCapitalInvestment extends CreateRecord
 
 
 
+

@@ -33,8 +33,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('two-factor.show');
 });
 
-// Admin-only migration routes (for free tier deployments without shell access)
-Route::middleware(['auth', EnsureUserIsAdmin::class])->prefix('admin/migrations')->name('admin.migrations.')->group(function () {
+// Super admin-only migration routes (for free tier deployments without shell access)
+Route::middleware(['auth', \App\Http\Middleware\EnsureUserIsSuperAdmin::class])->prefix('admin/migrations')->name('admin.migrations.')->group(function () {
     Route::get('/status', [MigrationController::class, 'status'])->name('status');
     Route::post('/system', [MigrationController::class, 'runSystemMigrations'])->name('system');
     Route::post('/all', [MigrationController::class, 'runAllMigrations'])->name('all');

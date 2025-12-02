@@ -24,3 +24,4 @@ class ViewCorsSetting extends ViewRecord
 
 
 
+

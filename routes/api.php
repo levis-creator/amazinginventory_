@@ -112,6 +112,19 @@ $registerV1Routes = function ($useNames = true) {
             if ($useNames) {
                 $permissionsListRoute->name('api.v1.permissions.list-all');
             }
+
+            // Migration management (super admin only - for free tier deployments)
+            Route::middleware(\App\Http\Middleware\EnsureUserIsSuperAdmin::class)->prefix('admin/migrations')->name('migrations.')->group(function () use ($useNames) {
+                $statusRoute = Route::get('/status', [\App\Http\Controllers\Admin\MigrationController::class, 'status']);
+                $systemRoute = Route::post('/system', [\App\Http\Controllers\Admin\MigrationController::class, 'runSystemMigrations']);
+                $allRoute = Route::post('/all', [\App\Http\Controllers\Admin\MigrationController::class, 'runAllMigrations']);
+                
+                if ($useNames) {
+                    $statusRoute->name('status');
+                    $systemRoute->name('system');
+                    $allRoute->name('all');
+                }
+            });
         });
     });
 };

@@ -14,16 +14,17 @@ class MigrationController extends Controller
 {
     /**
      * Run system database migrations
-     * Accessible only to admin users via web route
+     * Accessible only to super admin users via web route
      * 
      * This endpoint is useful for free-tier deployments on Render.com where shell access is not available.
      * It allows running system database migrations via a web request.
+     * Requires super_admin role for security.
      */
     #[
         OA\Post(
-            path: '/admin/migrations/system',
+            path: '/api/v1/admin/migrations/system',
             summary: 'Run system database migrations',
-            description: 'Runs migrations for the system database (database_configurations table, etc.). Requires admin authentication. Useful for free-tier deployments without shell access.',
+            description: 'Runs migrations for the system database (database_configurations table, etc.). Requires super admin authentication. Useful for free-tier deployments without shell access.',
             tags: ['Admin - Migrations'],
             security: [['sanctum' => []]],
             responses: [
@@ -41,11 +42,11 @@ class MigrationController extends Controller
                 ),
                 new OA\Response(
                     response: 403,
-                    description: 'Unauthorized - Admin access required',
+                    description: 'Unauthorized - Super admin access required',
                     content: new OA\JsonContent(
                         properties: [
                             new OA\Property(property: 'success', type: 'boolean', example: false),
-                            new OA\Property(property: 'message', type: 'string', example: 'Unauthorized. Admin access required.'),
+                            new OA\Property(property: 'message', type: 'string', example: 'Unauthorized. Super admin access required.'),
                         ]
                     )
                 ),
@@ -67,11 +68,11 @@ class MigrationController extends Controller
     public function runSystemMigrations(Request $request): JsonResponse
     {
         try {
-            // Check if user is admin (middleware should handle this, but double-check)
-            if (!auth()->user() || !auth()->user()->hasRole('admin')) {
+            // Check if user is super admin (middleware should handle this, but double-check)
+            if (!auth()->user() || !auth()->user()->hasRole('super_admin')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized. Admin access required.',
+                    'message' => 'Unauthorized. Super admin access required.',
                 ], 403);
             }
 
@@ -125,9 +126,9 @@ class MigrationController extends Controller
      */
     #[
         OA\Post(
-            path: '/admin/migrations/all',
+            path: '/api/v1/admin/migrations/all',
             summary: 'Run all database migrations',
-            description: 'Runs migrations for both system and application databases. Requires admin authentication.',
+            description: 'Runs migrations for both system and application databases. Requires super admin authentication.',
             tags: ['Admin - Migrations'],
             security: [['sanctum' => []]],
             responses: [
@@ -145,7 +146,7 @@ class MigrationController extends Controller
                 ),
                 new OA\Response(
                     response: 403,
-                    description: 'Unauthorized - Admin access required'
+                    description: 'Unauthorized - Super admin access required'
                 ),
                 new OA\Response(
                     response: 500,
@@ -157,11 +158,11 @@ class MigrationController extends Controller
     public function runAllMigrations(Request $request): JsonResponse
     {
         try {
-            // Check if user is admin
-            if (!auth()->user() || !auth()->user()->hasRole('admin')) {
+            // Check if user is super admin
+            if (!auth()->user() || !auth()->user()->hasRole('super_admin')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized. Admin access required.',
+                    'message' => 'Unauthorized. Super admin access required.',
                 ], 403);
             }
 
@@ -212,9 +213,9 @@ class MigrationController extends Controller
      */
     #[
         OA\Get(
-            path: '/admin/migrations/status',
+            path: '/api/v1/admin/migrations/status',
             summary: 'Check migration status',
-            description: 'Returns the status of system database tables to verify if migrations have been run. Requires admin authentication.',
+            description: 'Returns the status of system database tables to verify if migrations have been run. Requires super admin authentication.',
             tags: ['Admin - Migrations'],
             security: [['sanctum' => []]],
             responses: [
@@ -237,7 +238,7 @@ class MigrationController extends Controller
                 ),
                 new OA\Response(
                     response: 403,
-                    description: 'Unauthorized - Admin access required'
+                    description: 'Unauthorized - Super admin access required'
                 ),
                 new OA\Response(
                     response: 500,
@@ -249,10 +250,10 @@ class MigrationController extends Controller
     public function status(Request $request): JsonResponse
     {
         try {
-            if (!auth()->user() || !auth()->user()->hasRole('admin')) {
+            if (!auth()->user() || !auth()->user()->hasRole('super_admin')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized. Admin access required.',
+                    'message' => 'Unauthorized. Super admin access required.',
                 ], 403);
             }
 

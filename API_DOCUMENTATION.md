@@ -1148,11 +1148,15 @@ Authorization: Bearer {token}
 
 ## Admin Migration API
 
-> **⚠️ Admin Only:** All migration endpoints require the `admin` role. These endpoints are useful for free-tier deployments on Render.com where shell access is not available.
+> **⚠️ Super Admin Only:** All migration endpoints require the `super_admin` role. These endpoints are useful for free-tier deployments on Render.com where shell access is not available.
+
+**Note:** These endpoints are available at both:
+- `/api/v1/admin/migrations/*` (API routes - recommended for API clients)
+- `/admin/migrations/*` (Web routes - for direct browser access)
 
 ### Check Migration Status
 ```http
-GET /admin/migrations/status
+GET /api/v1/admin/migrations/status
 Authorization: Bearer {token}
 ```
 
@@ -1171,7 +1175,7 @@ Authorization: Bearer {token}
 
 ### Run System Migrations
 ```http
-POST /admin/migrations/system
+POST /api/v1/admin/migrations/system
 Authorization: Bearer {token}
 ```
 
@@ -1191,7 +1195,7 @@ Authorization: Bearer {token}
 ```json
 {
   "success": false,
-  "message": "Unauthorized. Admin access required."
+  "message": "Unauthorized. Super admin access required."
 }
 ```
 
@@ -1207,7 +1211,7 @@ Authorization: Bearer {token}
 
 ### Run All Migrations
 ```http
-POST /admin/migrations/all
+POST /api/v1/admin/migrations/all
 Authorization: Bearer {token}
 ```
 

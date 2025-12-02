@@ -12,14 +12,14 @@
         }
     ],
     "paths": {
-        "/admin/migrations/system": {
+        "/api/v1/admin/migrations/system": {
             "post": {
                 "tags": [
                     "Admin - Migrations"
                 ],
                 "summary": "Run system database migrations",
-                "description": "Runs migrations for the system database (database_configurations table, etc.). Requires admin authentication. Useful for free-tier deployments without shell access.",
-                "operationId": "f6d3079c6b342f38119a516c6d412f21",
+                "description": "Runs migrations for the system database (database_configurations table, etc.). Requires super admin authentication. Useful for free-tier deployments without shell access.",
+                "operationId": "a398148f25c446cd5b8f4561f0a0a77e",
                 "responses": {
                     "200": {
                         "description": "Migrations completed successfully",
@@ -50,7 +50,7 @@
                         }
                     },
                     "403": {
-                        "description": "Unauthorized - Admin access required",
+                        "description": "Unauthorized - Super admin access required",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -61,7 +61,7 @@
                                         },
                                         "message": {
                                             "type": "string",
-                                            "example": "Unauthorized. Admin access required."
+                                            "example": "Unauthorized. Super admin access required."
                                         }
                                     },
                                     "type": "object"
@@ -104,14 +104,14 @@
                 ]
             }
         },
-        "/admin/migrations/all": {
+        "/api/v1/admin/migrations/all": {
             "post": {
                 "tags": [
                     "Admin - Migrations"
                 ],
                 "summary": "Run all database migrations",
-                "description": "Runs migrations for both system and application databases. Requires admin authentication.",
-                "operationId": "5ed99781ad1d22fc2ec475b219cb0f57",
+                "description": "Runs migrations for both system and application databases. Requires super admin authentication.",
+                "operationId": "4d124e0f2c67886abe6a40a85707a78e",
                 "responses": {
                     "200": {
                         "description": "All migrations completed successfully",
@@ -141,7 +141,7 @@
                         }
                     },
                     "403": {
-                        "description": "Unauthorized - Admin access required"
+                        "description": "Unauthorized - Super admin access required"
                     },
                     "500": {
                         "description": "Migration failed"
@@ -154,14 +154,14 @@
                 ]
             }
         },
-        "/admin/migrations/status": {
+        "/api/v1/admin/migrations/status": {
             "get": {
                 "tags": [
                     "Admin - Migrations"
                 ],
                 "summary": "Check migration status",
-                "description": "Returns the status of system database tables to verify if migrations have been run. Requires admin authentication.",
-                "operationId": "c58a26b28e6c8c78d0901d1c27899862",
+                "description": "Returns the status of system database tables to verify if migrations have been run. Requires super admin authentication.",
+                "operationId": "6085dc6a5a48a5a191d59aaa11e8ba82",
                 "responses": {
                     "200": {
                         "description": "Migration status retrieved successfully",
@@ -193,7 +193,7 @@
                         }
                     },
                     "403": {
-                        "description": "Unauthorized - Admin access required"
+                        "description": "Unauthorized - Super admin access required"
                     },
                     "500": {
                         "description": "Error checking status"

@@ -266,6 +266,8 @@ API routes are versioned under `/api/v1/`. Configure in:
 - `routes/api.php`
 - `config/sanctum.php` (for token expiration)
 
+**⚠️ Important:** The API base URL should be exactly `/api/v1` (NOT `/api/v1/api/v1`). Laravel automatically adds the `/api` prefix to routes in `routes/api.php`, so the route prefix is only `/v1`.
+
 ## 📖 Usage
 
 ### Admin Panel

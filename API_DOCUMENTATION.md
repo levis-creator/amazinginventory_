@@ -5,7 +5,13 @@
 http://amazinginventory.test/api/v1
 ```
 
-**Note:** All API endpoints are versioned under `/api/v1/`. The base URL for all requests should include the `/v1` prefix.
+**Important Notes:**
+- All API endpoints are versioned under `/api/v1/`. The base URL for all requests should include the `/v1` prefix.
+- **⚠️ Avoid Duplication:** The base URL should be exactly `/api/v1` (NOT `/api/v1/api/v1`). Laravel automatically adds the `/api` prefix to routes in `routes/api.php`, so we only add `/v1` in the route prefix.
+- Example correct URLs:
+  - ✅ `http://amazinginventory.test/api/v1/dashboard/stats`
+  - ✅ `http://amazinginventory.test/api/v1/login`
+  - ❌ `http://amazinginventory.test/api/v1/api/v1/dashboard/stats` (WRONG - duplicate prefix)
 
 ## Authentication
 

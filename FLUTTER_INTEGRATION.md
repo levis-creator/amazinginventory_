@@ -19,6 +19,10 @@ Development: http://amazinginventory.test/api/v1
 Production:  https://yourdomain.com/api/v1
 ```
 
+**⚠️ Important:** The base URL must end with `/api/v1` (NOT `/api/v1/api/v1`). When constructing API requests:
+- ✅ Correct: `baseUrl = 'http://domain.com/api/v1'` + endpoint `/login` = `http://domain.com/api/v1/login`
+- ❌ Wrong: `baseUrl = 'http://domain.com/api/v1/api/v1'` (duplicate prefix)
+
 ### Authentication
 
 The API uses **Laravel Sanctum** with Bearer token authentication, which is perfect for mobile apps.

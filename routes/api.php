@@ -130,9 +130,6 @@ $registerV1Routes = function ($useNames = true) {
 };
 
 // API v1 routes (correct path: /api/v1/*)
+// Laravel automatically adds /api prefix to routes in this file
 Route::prefix('v1')->group(fn() => $registerV1Routes(true));
-
-// Handle duplicate prefix pattern (api/v1/api/v1/* -> same handlers)
-// This catches requests with incorrectly duplicated prefix and handles them gracefully
-Route::prefix('v1/api/v1')->group(fn() => $registerV1Routes(false));
 

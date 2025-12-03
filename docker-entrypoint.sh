@@ -189,7 +189,8 @@ php artisan permission:cache-reset || php artisan cache:clear || true
 # Verify APP_URL is set (critical for asset URLs)
 if [ -z "$APP_URL" ]; then
     echo "⚠️  WARNING: APP_URL is not set! This may cause asset loading issues."
-    echo "   Please set APP_URL in your Render environment variables."
+    echo "   Please set APP_URL in your Railway environment variables."
+    echo "   Railway will provide RAILWAY_PUBLIC_DOMAIN if you enable public networking."
 else
     echo "✅ APP_URL is set to: $APP_URL"
 fi
@@ -263,11 +264,17 @@ echo "🎨 Optimizing Filament panel..."
 php artisan filament:optimize || echo "⚠️  Filament optimization failed, continuing anyway..."
 
 # Start the application
-echo "🌟 Starting PHP development server..."
-# Render provides PORT environment variable, default to 80 if not set
-PORT=${PORT:-80}
-echo "🌐 Binding to port $PORT..."
-# Ensure we're in the correct directory and serve from public directory
-cd /var/www/html
-exec php artisan serve --host=0.0.0.0 --port=$PORT
+echo "🌟 Application is ready!"
+echo "🌐 Starting application via supervisor (PHP-FPM + Nginx)..."
+
+# Execute the startup script if it exists, otherwise start supervisor directly
+if [ -f "/usr/local/bin/start-railway.sh" ]; then
+    exec /usr/local/bin/start-railway.sh
+else
+    # Fallback: start supervisor directly
+    PORT=${PORT:-80}
+    echo "⚠️  Startup script not found, starting supervisor directly on port $PORT"
+    sed -i "s/listen 80;/listen $PORT;/" /etc/nginx/sites-available/default || true
+    exec supervisord -c /etc/supervisor/conf.d/supervisord.conf
+fi
 

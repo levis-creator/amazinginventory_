@@ -45,3 +45,5 @@ class EditCapitalInvestment extends EditRecord
 
 
 
+
+

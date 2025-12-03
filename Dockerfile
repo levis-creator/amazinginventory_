@@ -1,5 +1,6 @@
-# Use PHP 8.3 CLI (required for openspout/openspout v4.32.0)
-FROM php:8.3-cli
+# Multi-stage build for Railway deployment
+# Stage 1: Build stage - Install dependencies and build assets
+FROM php:8.3-fpm AS builder
 
 # Set working directory
 WORKDIR /var/www/html
@@ -30,15 +31,6 @@ RUN apt-get update && apt-get install -y \
         opcache \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Configure PHP for production
-RUN echo "opcache.enable=1" >> /usr/local/etc/php/conf.d/opcache.ini \
-    && echo "opcache.memory_consumption=256" >> /usr/local/etc/php/conf.d/opcache.ini \
-    && echo "opcache.interned_strings_buffer=16" >> /usr/local/etc/php/conf.d/opcache.ini \
-    && echo "opcache.max_accelerated_files=20000" >> /usr/local/etc/php/conf.d/opcache.ini \
-    && echo "opcache.validate_timestamps=0" >> /usr/local/etc/php/conf.d/opcache.ini \
-    && echo "opcache.save_comments=1" >> /usr/local/etc/php/conf.d/opcache.ini \
-    && echo "opcache.fast_shutdown=1" >> /usr/local/etc/php/conf.d/opcache.ini
-
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
@@ -51,9 +43,6 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 COPY composer.json composer.lock ./
 
 # Install PHP dependencies
-# Using --no-scripts to avoid running Laravel commands before files are copied
-# We'll run scripts manually after copying application files
-# Increase memory limit for Composer
 RUN COMPOSER_MEMORY_LIMIT=-1 composer install \
     --no-dev \
     --optimize-autoloader \
@@ -73,10 +62,9 @@ COPY . .
 
 # Set proper permissions
 RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html \
-    && chmod -R 755 /var/www/html/public
+    && chmod -R 755 /var/www/html
 
-# Create storage directories and set permissions (before running artisan commands)
+# Create storage directories and set permissions
 RUN mkdir -p storage/app/public \
     storage/framework/cache \
     storage/framework/sessions \
@@ -87,9 +75,7 @@ RUN mkdir -p storage/app/public \
     && chown -R www-data:www-data storage bootstrap/cache database \
     && chmod -R 775 storage bootstrap/cache database
 
-# Create a minimal .env file for artisan commands (if it doesn't exist)
-# This prevents errors when running artisan commands during build
-# Note: APP_URL will be set at runtime via environment variables
+# Create a minimal .env file for artisan commands during build
 RUN if [ ! -f .env ]; then \
         echo "APP_NAME=Laravel" > .env && \
         echo "APP_ENV=production" >> .env && \
@@ -98,22 +84,19 @@ RUN if [ ! -f .env ]; then \
         echo "APP_URL=http://localhost" >> .env; \
     fi
 
-# Run Composer scripts now that Laravel files are available
-# This runs package discovery and other post-install scripts
+# Run Composer scripts
 RUN composer dump-autoload --optimize --classmap-authoritative
 
-# Run Laravel package discovery (from post-autoload-dump script)
-# This also runs filament:upgrade via composer post-autoload-dump script
+# Run Laravel package discovery
 RUN php artisan package:discover --ansi || echo "⚠️  Package discovery skipped"
 
-# Ensure Filament assets are up to date (runs via composer script, but explicit for clarity)
+# Ensure Filament assets are up to date
 RUN php artisan filament:upgrade || echo "⚠️  Filament upgrade skipped"
 
-# Publish Filament assets to public directory
+# Publish Filament assets
 RUN php artisan filament:assets || echo "⚠️  Filament assets publish skipped"
 
 # Build frontend assets
-# Note: Assets are built with a placeholder APP_URL, which will be updated at runtime
 RUN npm run build
 
 # Verify build output exists
@@ -125,17 +108,98 @@ RUN if [ ! -f "public/build/manifest.json" ]; then \
 # Create storage symbolic link
 RUN php artisan storage:link || true
 
+# Stage 2: Production stage - Minimal runtime image
+FROM php:8.3-fpm
+
+# Set working directory
+WORKDIR /var/www/html
+
+# Install system dependencies and PHP extensions (runtime only)
+RUN apt-get update && apt-get install -y \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    libzip-dev \
+    libicu-dev \
+    libpq-dev \
+    nginx \
+    supervisor \
+    curl \
+    && docker-php-ext-configure intl \
+    && docker-php-ext-install -j$(nproc) \
+        pdo \
+        pdo_pgsql \
+        mbstring \
+        exif \
+        pcntl \
+        bcmath \
+        gd \
+        zip \
+        intl \
+        opcache \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Configure PHP-FPM for production
+RUN sed -i 's/listen = \/run\/php\/php8.3-fpm.sock/listen = 127.0.0.1:9000/' /usr/local/etc/php-fpm.d/www.conf \
+    && sed -i 's/;clear_env = no/clear_env = no/' /usr/local/etc/php-fpm.d/www.conf
+
+# Configure PHP for production
+RUN echo "opcache.enable=1" >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo "opcache.memory_consumption=256" >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo "opcache.interned_strings_buffer=16" >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo "opcache.max_accelerated_files=20000" >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo "opcache.validate_timestamps=0" >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo "opcache.save_comments=1" >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo "opcache.fast_shutdown=1" >> /usr/local/etc/php/conf.d/opcache.ini
+
+# Copy built application from builder stage
+COPY --from=builder --chown=www-data:www-data /var/www/html /var/www/html
+
+# Copy Nginx configuration
+COPY nginx.conf /etc/nginx/sites-available/default
+
+# Copy supervisor configuration for managing PHP-FPM and Nginx
+RUN echo "[supervisord]" > /etc/supervisor/conf.d/supervisord.conf \
+    && echo "nodaemon=true" >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo "" >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo "[program:php-fpm]" >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo "command=php-fpm" >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo "autostart=true" >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo "autorestart=true" >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo "stderr_logfile=/var/log/php-fpm.err.log" >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo "stdout_logfile=/var/log/php-fpm.out.log" >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo "" >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo "[program:nginx]" >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo "command=nginx -g 'daemon off;'" >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo "autostart=true" >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo "autorestart=true" >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo "stderr_logfile=/var/log/nginx.err.log" >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo "stdout_logfile=/var/log/nginx.out.log" >> /etc/supervisor/conf.d/supervisord.conf
+
 # Copy and set up entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Expose port (Render will use $PORT environment variable)
+# Create startup script that handles Railway PORT
+RUN echo '#!/bin/bash' > /usr/local/bin/start-railway.sh \
+    && echo 'set -e' >> /usr/local/bin/start-railway.sh \
+    && echo 'PORT=${PORT:-80}' >> /usr/local/bin/start-railway.sh \
+    && echo 'echo "🌐 Configuring Nginx to listen on port $PORT"' >> /usr/local/bin/start-railway.sh \
+    && echo 'sed -i "s/listen 80;/listen $PORT;/" /etc/nginx/sites-available/default' >> /usr/local/bin/start-railway.sh \
+    && echo 'echo "✅ Nginx configured for port $PORT"' >> /usr/local/bin/start-railway.sh \
+    && echo 'echo "🚀 Starting supervisor (PHP-FPM + Nginx)..."' >> /usr/local/bin/start-railway.sh \
+    && echo 'exec supervisord -c /etc/supervisor/conf.d/supervisord.conf' >> /usr/local/bin/start-railway.sh \
+    && chmod +x /usr/local/bin/start-railway.sh
+
+# Expose port (Railway will use PORT environment variable)
 EXPOSE 80
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-    CMD php artisan route:list > /dev/null 2>&1 || exit 1
+    CMD curl -f http://localhost:80/api/health || exit 1
 
 # Use entrypoint script to run migrations on startup
 ENTRYPOINT ["docker-entrypoint.sh"]
 
+# Start supervisor to manage PHP-FPM and Nginx
+CMD ["/usr/local/bin/start-railway.sh"]

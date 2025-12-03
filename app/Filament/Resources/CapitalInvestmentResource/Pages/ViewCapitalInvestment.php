@@ -26,3 +26,5 @@ class ViewCapitalInvestment extends ViewRecord
 
 
 
+
+

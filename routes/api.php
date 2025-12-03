@@ -129,6 +129,15 @@ $registerV1Routes = function ($useNames = true) {
     });
 };
 
+// Health check endpoint (public, no auth required)
+Route::get('/health', function () {
+    return response()->json([
+        'status' => 'ok',
+        'timestamp' => now()->toIso8601String(),
+        'service' => 'Amazing Inventory API',
+    ]);
+})->name('api.health');
+
 // API v1 routes (correct path: /api/v1/*)
 // Laravel automatically adds /api prefix to routes in this file
 Route::prefix('v1')->group(fn() => $registerV1Routes(true));

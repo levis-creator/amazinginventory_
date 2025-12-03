@@ -44,6 +44,35 @@ class SystemDatabaseServiceProvider extends ServiceProvider
     }
 
     /**
+     * Check if a table exists in the system database with timeout and caching
+     * 
+     * @param string $tableName The name of the table to check
+     * @param int $cacheTime Cache time in seconds (default: 300 = 5 minutes)
+     * @return bool True if table exists, false otherwise
+     */
+    protected function hasSystemTable(string $tableName, int $cacheTime = 300): bool
+    {
+        $cacheKey = "system_db_has_{$tableName}";
+        
+        return cache()->remember($cacheKey, $cacheTime, function () use ($tableName) {
+            try {
+                // Set timeout for table check (1 second)
+                $originalTimeout = ini_get('default_socket_timeout');
+                ini_set('default_socket_timeout', 1);
+                
+                try {
+                    return Schema::connection('system')->hasTable($tableName);
+                } finally {
+                    ini_set('default_socket_timeout', $originalTimeout);
+                }
+            } catch (\Exception $e) {
+                \Log::debug("Table existence check failed for {$tableName}: " . $e->getMessage());
+                return false;
+            }
+        });
+    }
+
+    /**
      * Initialize system database connection
      */
     protected function initializeSystemDatabase(): void
@@ -67,8 +96,23 @@ class SystemDatabaseServiceProvider extends ServiceProvider
                 }
             }
 
-            // Test system database connection
-            DB::connection('system')->getPdo();
+            // Test system database connection with timeout
+            // Set a short timeout to prevent hanging
+            // Use a try-catch to gracefully handle connection failures
+            $originalTimeout = ini_get('default_socket_timeout');
+            ini_set('default_socket_timeout', 1); // 1 second timeout - very aggressive
+            
+            try {
+                // Only test connection if we can do it quickly
+                // Use a simple query instead of getPdo() which might hang
+                DB::connection('system')->select('SELECT 1');
+            } catch (\Exception $e) {
+                // If connection test fails, log but don't break
+                // The connection might work later when actually needed
+                \Log::debug('System database connection test failed (non-fatal): ' . $e->getMessage());
+            } finally {
+                ini_set('default_socket_timeout', $originalTimeout);
+            }
         } catch (Exception $e) {
             // Log error but don't break application
             \Log::warning('System database initialization failed: ' . $e->getMessage());
@@ -86,11 +130,30 @@ class SystemDatabaseServiceProvider extends ServiceProvider
         static $loading = false;
         static $recursionDepth = 0;
         static $maxRecursionDepth = 3;
+        static $failureCount = 0;
+        static $lastFailureTime = 0;
+        
+        // Circuit breaker: if we've failed 3 times in the last 60 seconds, skip for 5 minutes
+        $circuitBreakerTime = 300; // 5 minutes
+        $failureWindow = 60; // 60 seconds
+        $maxFailures = 3;
+        
+        if ($failureCount >= $maxFailures && (time() - $lastFailureTime) < $circuitBreakerTime) {
+            \Log::warning("Circuit breaker active: Skipping database configuration load due to repeated failures");
+            return;
+        }
+        
+        // Reset failure count if enough time has passed
+        if ((time() - $lastFailureTime) > $circuitBreakerTime) {
+            $failureCount = 0;
+        }
         
         if ($loading) {
             // If already loading, check recursion depth
             if ($recursionDepth >= $maxRecursionDepth) {
                 \Log::error("Maximum recursion depth reached in loadDatabaseConfigurations. Aborting to prevent infinite loop.");
+                $failureCount++;
+                $lastFailureTime = time();
                 return;
             }
             $recursionDepth++;
@@ -117,7 +180,55 @@ class SystemDatabaseServiceProvider extends ServiceProvider
                     return;
                 }
             }
+            
+            // Record start time to detect if operation is taking too long
+            $startTime = microtime(true);
+            $maxExecutionTime = 1.5; // 1.5 seconds max for this operation
 
+            // Quick health check: Try to verify system database is accessible
+            // If this fails or takes too long, skip the entire operation
+            try {
+                $healthCheckStart = microtime(true);
+                $originalTimeout = ini_get('default_socket_timeout');
+                ini_set('default_socket_timeout', 0.5); // 500ms timeout for health check
+                
+                try {
+                    // Quick connection test - just try to get the connection object
+                    // This should be fast as it doesn't establish the actual connection
+                    // The connection is only established when we execute a query
+                    $connection = DB::connection('system');
+                    // Just verify the connection object exists - don't call methods that might trigger connection
+                    if (!$connection) {
+                        throw new \Exception('Could not get system database connection');
+                    }
+                } catch (\Exception $e) {
+                    // If health check fails, skip entire operation
+                    \Log::debug('System database health check failed, skipping configuration load: ' . $e->getMessage());
+                    $loading = false;
+                    $failureCount++;
+                    $lastFailureTime = time();
+                    return;
+                } finally {
+                    ini_set('default_socket_timeout', $originalTimeout);
+                }
+                
+                // If health check took too long, skip
+                if ((microtime(true) - $healthCheckStart) > 0.5) {
+                    \Log::warning('System database health check took too long, skipping configuration load');
+                    $loading = false;
+                    $failureCount++;
+                    $lastFailureTime = time();
+                    return;
+                }
+            } catch (\Exception $e) {
+                // If health check throws an exception, skip
+                \Log::debug('System database health check exception, skipping: ' . $e->getMessage());
+                $loading = false;
+                $failureCount++;
+                $lastFailureTime = time();
+                return;
+            }
+            
             // In local environment, check if we should respect .env SQLite setting
             // BUT: If there's a default database configured in the portal, use it instead
             if (app()->environment('local') && env('DB_CONNECTION') === 'sqlite') {
@@ -125,13 +236,41 @@ class SystemDatabaseServiceProvider extends ServiceProvider
                 // We need to check this BEFORE deciding to skip
                 // Use DB facade directly to avoid Eloquent resolver issues
                 try {
-                    if (Schema::connection('system')->hasTable('database_configurations')) {
-                        // Use DB facade directly instead of Eloquent for early check
-                        $hasDefault = DB::connection('system')
-                            ->table('database_configurations')
-                            ->where('is_active', true)
-                            ->where('is_default', true)
-                            ->exists();
+                    // Use cached table check to avoid repeated queries
+                    $hasTable = $this->hasSystemTable('database_configurations');
+                    
+                    // Check time again
+                    if ((microtime(true) - $startTime) > $maxExecutionTime) {
+                        \Log::warning('Database configuration load taking too long, aborting');
+                        $loading = false;
+                        $failureCount++;
+                        $lastFailureTime = time();
+                        return;
+                    }
+                    
+                    if ($hasTable) {
+                        // Use cached check to avoid repeated queries and timeouts
+                        // Cache the result for 5 minutes
+                        $hasDefault = cache()->remember('system_db_has_default_config', 300, function () {
+                            try {
+                                // Set timeout for query (1 second)
+                                $originalTimeout = ini_get('default_socket_timeout');
+                                ini_set('default_socket_timeout', 1);
+                                
+                                try {
+                                    return DB::connection('system')
+                                        ->table('database_configurations')
+                                        ->where('is_active', true)
+                                        ->where('is_default', true)
+                                        ->exists();
+                                } finally {
+                                    ini_set('default_socket_timeout', $originalTimeout);
+                                }
+                            } catch (\Exception $e) {
+                                \Log::debug("Default config check failed: " . $e->getMessage());
+                                return false;
+                            }
+                        });
                         
                         // If there's a default database in portal, use it (don't skip)
                         if ($hasDefault) {
@@ -150,9 +289,27 @@ class SystemDatabaseServiceProvider extends ServiceProvider
                 }
             }
 
-            // Check if system database tables exist
-            if (!Schema::connection('system')->hasTable('database_configurations')) {
+            // Check time again before table check
+            if ((microtime(true) - $startTime) > $maxExecutionTime) {
+                \Log::warning('Database configuration load taking too long, aborting');
                 $loading = false;
+                $failureCount++;
+                $lastFailureTime = time();
+                return;
+            }
+            
+            // Check if system database tables exist with timeout and caching
+            if (!$this->hasSystemTable('database_configurations')) {
+                $loading = false;
+                return;
+            }
+            
+            // Check time again before loading configurations
+            if ((microtime(true) - $startTime) > $maxExecutionTime) {
+                \Log::warning('Database configuration load taking too long, aborting');
+                $loading = false;
+                $failureCount++;
+                $lastFailureTime = time();
                 return;
             }
 
@@ -165,11 +322,19 @@ class SystemDatabaseServiceProvider extends ServiceProvider
             if ($bypassCache) {
                 // Force reload from database, bypassing cache
                 try {
-                    $configurations = DatabaseConfiguration::on('system')
-                        ->where('is_active', true)
-                        ->get();
-                    // Update cache with fresh data
-                    cache()->put('database_configurations', $configurations, 300);
+                    // Set timeout for query execution
+                    $originalTimeout = ini_get('default_socket_timeout');
+                    ini_set('default_socket_timeout', 2); // 2 second timeout
+                    
+                    try {
+                        $configurations = DatabaseConfiguration::on('system')
+                            ->where('is_active', true)
+                            ->get();
+                        // Update cache with fresh data
+                        cache()->put('database_configurations', $configurations, 300);
+                    } finally {
+                        ini_set('default_socket_timeout', $originalTimeout);
+                    }
                 } catch (\Exception $e) {
                     \Log::warning('Failed to load database configurations: ' . $e->getMessage());
                     $configurations = collect([]);
@@ -177,10 +342,18 @@ class SystemDatabaseServiceProvider extends ServiceProvider
             } else {
                 $configurations = cache()->remember('database_configurations', 300, function () {
                     try {
-                        // Use system connection explicitly and set a timeout
-                        return DatabaseConfiguration::on('system')
-                            ->where('is_active', true)
-                            ->get();
+                        // Set timeout for query execution
+                        $originalTimeout = ini_get('default_socket_timeout');
+                        ini_set('default_socket_timeout', 2); // 2 second timeout
+                        
+                        try {
+                            // Use system connection explicitly and set a timeout
+                            return DatabaseConfiguration::on('system')
+                                ->where('is_active', true)
+                                ->get();
+                        } finally {
+                            ini_set('default_socket_timeout', $originalTimeout);
+                        }
                     } catch (\Exception $e) {
                         // If loading fails, return empty collection to prevent errors
                         \Log::warning('Failed to load database configurations: ' . $e->getMessage());
@@ -316,6 +489,9 @@ class SystemDatabaseServiceProvider extends ServiceProvider
         } catch (Exception $e) {
             // Log error but don't break application
             \Log::warning('Failed to load database configurations: ' . $e->getMessage());
+            // Increment failure count for circuit breaker
+            $failureCount++;
+            $lastFailureTime = time();
         } finally {
             // Always reset loading flag and recursion depth
             $loading = false;
@@ -353,9 +529,8 @@ class SystemDatabaseServiceProvider extends ServiceProvider
                 return;
             }
 
-            // Check if system database tables exist
-            if (!Schema::connection('system')->hasTable('environments') ||
-                !Schema::connection('system')->hasTable('environment_variables')) {
+            // Check if system database tables exist with timeout and caching
+            if (!$this->hasSystemTable('environments') || !$this->hasSystemTable('environment_variables')) {
                 $loading = false;
                 return;
             }

@@ -169,10 +169,15 @@ return [
 
             if ($driver === 'sqlite') {
                 // SQLite specific configuration
-                $config['busy_timeout'] = null;
+                // Set busy_timeout to 2 seconds to prevent hanging on locked database
+                $config['busy_timeout'] = 2000; // 2 seconds in milliseconds
                 $config['journal_mode'] = null;
                 $config['synchronous'] = null;
                 $config['transaction_mode'] = 'DEFERRED';
+                // Add timeout option for PDO
+                $config['options'] = extension_loaded('pdo_sqlite') ? [
+                    PDO::ATTR_TIMEOUT => 2, // 2 second timeout
+                ] : [];
             } else {
                 // PostgreSQL/MySQL specific configuration
                 $config['host'] = env('SYSTEM_DB_HOST', '127.0.0.1');

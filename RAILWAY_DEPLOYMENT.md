@@ -111,6 +111,18 @@ FILAMENT_ADMIN_PASSWORD=your-secure-password
 FILAMENT_ADMIN_NAME="Admin User"
 ```
 
+#### Session & Cookie Configuration (CRITICAL for Filament Login)
+
+```bash
+SESSION_DRIVER=database               # Or 'redis' if using Redis
+SESSION_SECURE_COOKIE=true            # REQUIRED: Set to true for HTTPS on Railway
+SESSION_SAME_SITE=lax                 # Use 'lax' for Railway (or 'none' if needed)
+SESSION_DOMAIN=null                   # Leave null for Railway (don't set a domain)
+SESSION_HTTP_ONLY=true                # Keep true for security
+```
+
+**Important**: Railway uses HTTPS, so `SESSION_SECURE_COOKIE=true` is required for cookies to work.
+
 #### Optional Variables
 
 ```bash
@@ -118,7 +130,6 @@ SEED_DATABASE=true                    # Set to false to skip seeding on startup
 LOG_CHANNEL=stack
 LOG_LEVEL=info
 QUEUE_CONNECTION=database             # Or 'redis' if using Redis
-SESSION_DRIVER=database               # Or 'redis' if using Redis
 CACHE_DRIVER=database                 # Or 'redis' if using Redis
 ```
 
@@ -233,6 +244,113 @@ Migrations run automatically on startup via `docker-entrypoint.sh`:
   railway run php artisan tinker
   # Then create user manually
   ```
+
+### Filament Assets Not Published
+
+If you see the warning: `⚠️  WARNING: public/filament directory not found!`
+
+1. **Manually publish assets:**
+   ```bash
+   railway run php artisan filament:assets
+   ```
+
+2. **If that fails, try alternative:**
+   ```bash
+   railway run php artisan vendor:publish --tag=filament-assets --force
+   ```
+
+3. **Clear config and retry:**
+   ```bash
+   railway run php artisan config:clear
+   railway run php artisan filament:assets
+   ```
+
+4. **Verify assets exist:**
+   ```bash
+   railway run ls -la public/filament/
+   railway run ls -la public/vendor/filament/
+   ```
+
+### Filament Login Not Working
+
+This is usually caused by session/cookie configuration issues on Railway:
+
+1. **Check Environment Variables (CRITICAL):**
+   ```bash
+   SESSION_DRIVER=database
+   SESSION_SECURE_COOKIE=true          # REQUIRED for HTTPS on Railway
+   SESSION_SAME_SITE=lax
+   SESSION_DOMAIN=null                 # Don't set a domain
+   APP_URL=https://your-app.up.railway.app  # Must match your Railway URL exactly
+   ```
+
+2. **Verify Admin User Exists:**
+   ```bash
+   railway run php artisan tinker
+   ```
+   Then run:
+   ```php
+   $user = \App\Models\User::where('email', env('FILAMENT_ADMIN_EMAIL'))->first();
+   if ($user) {
+       echo "User found: " . $user->email . "\n";
+       echo "Has admin role: " . (($user->hasRole('admin') || $user->hasRole('super_admin')) ? 'YES' : 'NO') . "\n";
+   } else {
+       echo "User not found! Run: php artisan db:seed\n";
+   }
+   ```
+
+3. **Check Session Table Exists:**
+   ```bash
+   railway run php artisan migrate
+   # Ensure sessions table exists
+   ```
+
+4. **Clear All Caches:**
+   ```bash
+   railway run php artisan config:clear
+   railway run php artisan cache:clear
+   railway run php artisan route:clear
+   railway run php artisan view:clear
+   ```
+
+5. **Verify APP_URL:**
+   - Must match your Railway domain exactly (including https://)
+   - Check in Railway dashboard → Service → Settings → Variables
+   - Should be: `https://your-app-name.up.railway.app`
+
+6. **Check Browser Console:**
+   - Open browser DevTools → Console
+   - Look for cookie/session errors
+   - Check Network tab for failed requests
+
+7. **Run Diagnostic Command:**
+   ```bash
+   railway run php artisan filament:diagnose-login
+   ```
+   This will check:
+   - Sessions table exists
+   - Admin user exists and has correct roles
+   - canAccessPanel() returns true
+   - Session configuration is correct
+   - Database connection works
+   - Session storage is working
+
+8. **Test Session:**
+   ```bash
+   railway run php artisan tinker
+   ```
+   Then:
+   ```php
+   session()->put('test', 'value');
+   echo session()->get('test'); // Should output 'value'
+   ```
+
+9. **Check Browser Network Tab:**
+   - Open DevTools → Network tab
+   - Try to login
+   - Look for failed requests (status 403, 500, etc.)
+   - Check response headers for Set-Cookie
+   - Verify cookies are being sent in subsequent requests
 
 ## Environment Variables Reference
 

@@ -274,8 +274,23 @@ echo "🚀 Optimizing Laravel application..."
 php artisan optimize || true
 
 # Publish Filament assets (ensures CSS/JS are available)
+# This MUST run after migrations and before optimization
 echo "📦 Publishing Filament assets..."
-php artisan filament:assets || echo "⚠️  Filament assets publish failed, continuing anyway..."
+if php artisan filament:assets; then
+    echo "✅ Filament assets published successfully"
+else
+    echo "⚠️  First attempt failed, retrying Filament assets publish..."
+    # Clear config cache and try again (sometimes needed if config changed)
+    php artisan config:clear || true
+    if php artisan filament:assets; then
+        echo "✅ Filament assets published on retry"
+    else
+        echo "❌ ERROR: Filament assets publish failed after retry!"
+        echo "   This may cause Filament login page to not work properly."
+        echo "   Trying alternative: php artisan vendor:publish --tag=filament-assets"
+        php artisan vendor:publish --tag=filament-assets --force || true
+    fi
+fi
 
 # Ensure public directory and assets are accessible
 echo "🔐 Setting proper permissions for public directory..."
@@ -296,9 +311,32 @@ if [ -d "public/filament" ]; then
     chmod -R 755 public/filament/ || true
     chown -R www-data:www-data public/filament/ || true
     # List Filament assets for debugging
-    echo "📁 Filament assets: $(find public/filament -type f | wc -l) files"
+    FILAMENT_FILES=$(find public/filament -type f 2>/dev/null | wc -l)
+    echo "📁 Filament assets: $FILAMENT_FILES files"
+    
+    # Also check vendor/filament directory (some versions use this)
+    if [ -d "public/vendor/filament" ]; then
+        VENDOR_FILES=$(find public/vendor/filament -type f 2>/dev/null | wc -l)
+        echo "📁 Filament vendor assets: $VENDOR_FILES files"
+        chmod -R 755 public/vendor/filament/ || true
+        chown -R www-data:www-data public/vendor/filament/ || true
+    fi
 else
-    echo "⚠️  WARNING: public/filament directory not found! Filament assets may not be published."
+    echo "⚠️  WARNING: public/filament directory not found!"
+    echo "   Attempting to publish Filament assets again..."
+    php artisan config:clear || true
+    php artisan filament:assets || php artisan vendor:publish --tag=filament-assets --force || true
+    
+    # Check again after retry
+    if [ -d "public/filament" ]; then
+        echo "✅ Filament assets published on retry"
+        chmod -R 755 public/filament/ || true
+        chown -R www-data:www-data public/filament/ || true
+    else
+        echo "❌ ERROR: Filament assets still not found after retry!"
+        echo "   Filament login page may not work. Check Railway logs for errors."
+        echo "   You may need to run manually: php artisan filament:assets"
+    fi
 fi
 
 # Ensure build assets are accessible

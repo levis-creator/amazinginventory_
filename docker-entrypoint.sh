@@ -267,6 +267,9 @@ php artisan filament:optimize || echo "⚠️  Filament optimization failed, con
 echo "🌟 Application is ready!"
 echo "🌐 Starting application via supervisor (PHP-FPM + Nginx)..."
 
+# Ensure PHP-FPM socket directory exists (for fallback)
+mkdir -p /var/run/php || true
+
 # Execute the startup script if it exists, otherwise start supervisor directly
 if [ -f "/usr/local/bin/start-railway.sh" ]; then
     exec /usr/local/bin/start-railway.sh

@@ -80,22 +80,74 @@ fi
 # The migrate:all command handles both system and application database migrations
 # The seeder uses firstOrCreate, so it's safe to run multiple times
 
-# IMPORTANT: Run system database migrations FIRST, before application migrations
-# This ensures the database_configurations table exists before the app tries to use it
-echo "🗄️  Running system database migrations..."
-if php artisan migrate --database=system --path=database/migrations/system --force; then
-    echo "✅ System database migrations completed successfully"
+# Check database connections before running migrations
+echo "🔍 Checking database connections before running migrations..."
+
+# Check application database connection
+echo "📊 Checking application database connection..."
+APP_DB_CONNECTED=false
+if php artisan db:show > /dev/null 2>&1; then
+    APP_DB_CONNECTED=true
+    echo "✅ Application database connection successful (via db:show)"
+elif php artisan migrate:status > /dev/null 2>&1; then
+    APP_DB_CONNECTED=true
+    echo "✅ Application database connection successful (via migrate:status)"
 else
-    echo "⚠️  System database migrations failed or already up to date"
-    # Continue anyway - migrations might already be run
+    echo "❌ Application database connection failed!"
+    echo "⚠️  Please check your database configuration:"
+    echo "   - DB_CONNECTION: ${DB_CONNECTION:-not set}"
+    echo "   - DB_HOST: ${DB_HOST:-not set}"
+    echo "   - DB_DATABASE: ${DB_DATABASE:-not set}"
+    echo "   - DB_USERNAME: ${DB_USERNAME:-not set}"
 fi
 
-# Now run application database migrations
-echo "🗄️  Running application database migrations..."
-if php artisan migrate --force; then
-    echo "✅ Application database migrations completed successfully"
+# Check system database connection (if not SQLite)
+if [ "$SYSTEM_DB_CONNECTION" != "sqlite" ]; then
+    echo "📊 Checking system database connection..."
+    SYSTEM_DB_CONNECTED=false
+    if php artisan migrate:status --database=system > /dev/null 2>&1; then
+        SYSTEM_DB_CONNECTED=true
+        echo "✅ System database connection successful"
+    else
+        echo "❌ System database connection failed!"
+        echo "⚠️  Please check your system database configuration:"
+        echo "   - SYSTEM_DB_CONNECTION: ${SYSTEM_DB_CONNECTION:-not set}"
+        echo "   - SYSTEM_DB_HOST: ${SYSTEM_DB_HOST:-not set}"
+    fi
 else
-    echo "⚠️  Application database migrations failed or already up to date"
+    SYSTEM_DB_CONNECTED=true
+    echo "✅ System database is SQLite (connection check skipped)"
+fi
+
+# Verify connections are successful before proceeding
+if [ "$APP_DB_CONNECTED" = "false" ]; then
+    echo ""
+    echo "❌ ERROR: Application database connection failed!"
+    echo "   Cannot proceed with migrations without a valid database connection."
+    echo "   Please fix your database configuration and try again."
+    exit 1
+fi
+
+if [ "$SYSTEM_DB_CONNECTED" = "false" ]; then
+    echo ""
+    echo "❌ ERROR: System database connection failed!"
+    echo "   Cannot proceed with migrations without a valid system database connection."
+    echo "   Please fix your system database configuration and try again."
+    exit 1
+fi
+
+echo ""
+echo "✅ All database connections verified successfully!"
+
+# IMPORTANT: migrate:all runs system database migrations FIRST, before application migrations
+# This ensures the database_configurations table exists before the app tries to use it
+echo ""
+echo "🗄️  Running migrations for all databases (system + application)..."
+if php artisan migrate:all --force; then
+    echo "✅ All database migrations completed successfully"
+else
+    echo "⚠️  Database migrations failed or already up to date"
+    # Continue anyway - migrations might already be run
 fi
 
 if [ "${SEED_DATABASE:-true}" = "true" ]; then
